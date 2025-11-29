@@ -12,6 +12,12 @@
 #include<time.h>
 #include<sys/select.h>
 
+typedef enum{
+    DRONE_BORDER_POS,
+    NEW_DRONE_POS,
+    MSG_QUIT
+} MsgType;
+
 void sleep_ms(long ms) {
     struct timespec ts;
     ts.tv_sec = ms / 1000;

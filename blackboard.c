@@ -96,27 +96,17 @@ static void layout_and_draw(WINDOW *win) {
 }
 
 int main(int argc, char* argv[]) {
-    /*
-    // Receives request of new position from drone, non blocking otherwise it would block resize of window
-    char* myfifo1 = "/tmp/myfifoFromDToBRequest";
-    char* myfifo2 = "/tmp/myfifoFromBToD"; // Used to send current drone position, obstacle positions and borders position to drone
-    // Receives new position of drone from drone (movement), can be blocking, since we are waiting for a new position, 
-    // after pressing a key, and realistically we wouldn't choose to resize window at that moment
-    char* myfifo3 = "/tmp/myfifoFromDToBNewPos";
-    mkfifo(myfifo1, 0666);
-    mkfifo(myfifo2, 0666);
-    mkfifo(myfifo3, 0666);
-    int fd1, fd2, fd3;
-    */
 
     if(argc < 4){
         fprintf(stderr,"No arguments passed to blackboard\n");
         exit(EXIT_FAILURE);
     }
 
-    int fd_req = atoi(argv[1]);
+    int fd_req = atoi(argv[1]); // Receives request of new position from drone, non blocking otherwise it would block resize of window
     int fd_npos = atoi(argv[2]);
-    int fd_pos = atoi(argv[3]);
+    int fd_pos = atoi(argv[3]);// Used to send current drone position, obstacle positions and borders position to drone
+    // Receives new position of drone from drone (movement), can be blocking, since we are waiting for a new position, 
+    // after pressing a key, and realistically we wouldn't choose to resize window at that moment
 
     // Make reads from fd_req and fd_npos not blocking
     int flags = fcntl(fd_req, F_GETFL, 0);
@@ -141,14 +131,6 @@ int main(int argc, char* argv[]) {
 
     int H, W;
 
-    /*
-    char input_string[80];
-    char output_string[80];
-    char positions_format[80] = "pos: %d,%d, borders: %d,%d";
-    int drone_position[2]; // (y,x)
-    int borders[2];
-    */
-
     BlackboardMsg positions; positions.border_x = 0; positions.border_y = 0;
            positions.drone_x = 0; positions.drone_y = 0; positions.type = MSG_POS;
     DroneMsg drone_msg; drone_msg.type = MSG_NAN;
@@ -170,15 +152,7 @@ int main(int argc, char* argv[]) {
     positions.drone_y = H/2; // y
     positions.drone_x = W/2; // x
     
-    /*
-    fd1 = open(myfifo1, O_RDONLY | O_NONBLOCK);
-    fd3 = open(myfifo3, O_RDONLY | O_NONBLOCK);
-    fd2 = open(myfifo2, O_WRONLY);
-    if(fd2 < 0){
-        perror("open");
-        return 0;
-    }
-    */
+    
 
     refresh();
 
@@ -202,36 +176,33 @@ int main(int argc, char* argv[]) {
             positions.border_y = H-7;
             positions.border_x = W-7;
         }
-        //read(fd_req, input_string, sizeof(input_string)); // Checks for position request from drone (non blocking)
         read(fd_req, &drone_msg, sizeof(drone_msg)); // Checks for position request from drone (non blocking)
-        if(drone_msg.type == MSG_POS/*input_string[0] == 'p'*/){
-            // Reset string to avoid rexecuting if statement
-            //strcpy(input_string,"");
+        if(drone_msg.type == MSG_POS){
             // Drone is asking for position
-            //sprintf(output_string,positions_format, drone_position[0], drone_position[1], borders[0], borders[1]);
-            //write(fd_pos,output_string,strlen(output_string)+1); // Sends current position
             write(fd_pos,&positions,sizeof(positions)); // Sends current position
             // If drone is asking for position it wants to move, thus reading on fd3
             while(1){
-                //printf("try1\n");
-                //read(fd_npos,output_string,sizeof(output_string)); // Receiving new position
                 read(fd_npos,&drone_msg,sizeof(drone_msg)); // Receiving new position
-                //printf("try2\n");
                 if(drone_msg.type == MSG_STOP/*output_string[0] == 's'*/)
                     break;
                 if(drone_msg.type == MSG_QUIT/*output_string[0] == 'q'*/)
                     exit(EXIT_SUCCESS);
-                //mvwaddch(win,drone_position[0],drone_position[1],' ');
                 mvwaddch(win,positions.drone_y,positions.drone_x,' ');
-                //sscanf(output_string,positions_format,&drone_position[0],&drone_position[1],&borders[0],&borders[1]);
+                if(drone_msg.new_drone_y >= H-2)
+                    drone_msg.new_drone_y= H-2;
+                else if(drone_msg.new_drone_y < 1)
+                    drone_msg.new_drone_y = 1;
+                if(drone_msg.new_drone_x >= W-2)
+                    drone_msg.new_drone_x = W-2;
+                else if(drone_msg.new_drone_x < 1)
+                    drone_msg.new_drone_x = 1;
                 positions.drone_y = drone_msg.new_drone_y;
                 positions.drone_x = drone_msg.new_drone_x;
-                //mvwprintw(win,drone_position[0],drone_position[1],"+");
                 mvwprintw(win,positions.drone_y,positions.drone_x,"+");
                 wrefresh(win);
             }
         }
-        else if(drone_msg.type == MSG_QUIT/*input_string[0] == 'q'*/){
+        else if(drone_msg.type == MSG_QUIT){
             exit(EXIT_SUCCESS);
         }
         wrefresh(win);

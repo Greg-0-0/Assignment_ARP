@@ -233,7 +233,7 @@ void compute_repulsive_forces(int fd_npos,DroneMsg* drone_msg, double* force_x, 
 }
 
 void move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[2],double force_x, double force_y, double max_force, 
-       double oblique_force_comp, double M, double K, double T, int borders[], char last_valid_key, int obstacles[N_OBS][2], int ro){
+       double oblique_force_comp, double M, double K, double T, int borders[], int obstacles[N_OBS][2], int ro){
 
     fd_set rfds;
     struct timeval tv;
@@ -253,7 +253,6 @@ void move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[
     sleep_ms(250); // Delay to ensure multiple consecutive clicks are taken into account correctly (the forces sum up)
 
     do{
-        printf("las %c\n",last_valid_key);
         FD_ZERO(&rfds);
         FD_SET(fd_key, &rfds);
         retval = select(nfds, &rfds, NULL, NULL, &tv); // Returns only if a key has been pressed
@@ -276,9 +275,7 @@ void move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[
                 switch (received_key)
                 {
                 case 'f':force_x = force_x + max_force; break;
-                case 's':force_x = force_x - max_force; 
-                    printf("force: %f\n", force_x);
-                    break;
+                case 's':force_x = force_x - max_force; break;
                 case 'e':force_y = force_y - max_force; break;
                 case 'c':force_y = force_y + max_force; break;
                 case 'w':
@@ -342,15 +339,11 @@ void move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[
             &temp_x, &temp_y);
 
         // Checking if drone is within 5 pixels from the border
-        // while(drone_msg->new_drone_y <= 6 || drone_msg->new_drone_x <= 6 || 
         while(drone_msg->new_drone_y <= 6 || drone_msg->new_drone_x <= 6 || 
             drone_msg->new_drone_y >= borders[0] || drone_msg->new_drone_x >= borders[1]){
-            printf("border\n");
             is_on_border = 1;
             control = 0;
             delay = 150;
-
-            // ----------
 
             float threshold = 6.0f;   // Distance from border where repulsion begins
             float k = max_force;      // Strength scale
@@ -363,8 +356,6 @@ void move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[
             float d_right  = borders[1] - drone_msg->new_drone_x;
             float d_top    = drone_msg->new_drone_y - 6;
             float d_bottom = borders[0] - drone_msg->new_drone_y;
-
-            printf("d_left: %f, d_right: %f, d_top: %f, d_bottom: %f\n", d_left,d_right,d_top,d_bottom);
 
             // --- Horizontal repulsion ---
             if (d_left < threshold) {
@@ -382,13 +373,10 @@ void move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[
                 fy -= k * (threshold - d_bottom) / threshold;// // force towards up
             }
 
-            printf("force x: %f, force y: %f\n", fx,fy);
-
             // Output force
             force_x = fx;
             force_y = fy;
             
-            printf("applying force %f\n", force_x);
             // Along x axis
             temp_x = force_x - (M/(T*T)*(loop_prev_drone_pos[1]-2*loop_curr_drone_pos[1])) + 
                     loop_curr_drone_pos[1]*(K/T);
@@ -415,13 +403,8 @@ void move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[
             previous_drone_pos[0] = drone_msg->new_drone_y;
             drone_msg->new_drone_y = next_drone_pos[0];
 
-            printf("force x: %f, force y: %f\n", force_x,force_y);
-
             // New position is sent to blackboard for graphical update
             write(fd_npos,drone_msg,sizeof(*drone_msg));
-
-            //compute_repulsive_forces(fd_npos,drone_msg,&force_x,&force_y,max_force,M,K,T,obstacles,ro,loop_prev_drone_pos,
-            //    loop_curr_drone_pos,loop_next_drone_pos, previous_drone_pos,next_drone_pos,&temp_x, &temp_y);
 
             sleep_ms(delay);
 
@@ -436,6 +419,8 @@ void move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[
             else if(force_y < 0)
                 force_y += 1;
         }
+
+        // Depleting all forces applied
         if(fabs(force_x) > epsilon || fabs(force_y) > epsilon){
             // Along x axis
             temp_x = force_x - (M/(T*T)*(loop_prev_drone_pos[1]-2*loop_curr_drone_pos[1])) + 
@@ -465,9 +450,6 @@ void move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[
 
             // New position is sent to blackboard for graphical update
             write(fd_npos,drone_msg,sizeof(*drone_msg));
-
-            //compute_repulsive_forces(fd_npos,drone_msg,&force_x,&force_y,max_force,M,K,T,obstacles,ro,loop_prev_drone_pos,
-            //    loop_curr_drone_pos,loop_next_drone_pos, previous_drone_pos,next_drone_pos,&temp_x, &temp_y);
 
             sleep_ms(delay);
 

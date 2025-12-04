@@ -28,7 +28,6 @@ int main(int argc, char * argv[]){
         if(n > 0){
             if(positions.type == MSG_QUIT)
                 exit(EXIT_SUCCESS);
-            printf("pos border: %d, %d\n", positions.border_x,positions.border_y);
             // Creating targets
             for(int i = 0;i<N_TARGETS;i++){
                 int pos_y = 7 + rand() % (positions.border_y - 7); // Random generator from 7 to H - 8

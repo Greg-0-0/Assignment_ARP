@@ -35,7 +35,7 @@ int main(){
     snprintf(argd2, sizeof argd2, "%d", pipe_D_to_B_NPos[1]); // writes new positions to blackboard
     snprintf(argd3, sizeof argd3, "%d", pipe_B_to_D_Pos[0]); // reads replies from blackboard
     snprintf(argd4, sizeof argd4, "%d", pipe_I_to_D[0]); // reads commands from input_manager
-    char *args_drone[] = { "konsole", "-e", "./drone", argd1, argd2, argd3, argd4, NULL };
+    char *args_drone[] = {"./drone", argd1, argd2, argd3, argd4, NULL };
     spawn(args_drone[0], args_drone);
 
     // ---------- spawn input_manager ----------
@@ -48,14 +48,14 @@ int main(){
     char argo1[32], argo2[32];
     snprintf(argo1, sizeof argo1, "%d", pipe_B_to_O[0]); // reads positions from blackboard
     snprintf(argo2, sizeof argo2, "%d", pipe_O_to_B[1]); // writes positions to blackboard
-    char *args_obstacles[] = { "konsole", "-e", "./obstacles", argo1, argo2, NULL };
+    char *args_obstacles[] = {"./obstacles", argo1, argo2, NULL };
     spawn(args_obstacles[0], args_obstacles);
 
     // ---------- spawn targets ----------
     char argt1[32], argt2[32];
     snprintf(argt1, sizeof argt1, "%d", pipe_B_to_T[0]); // reads positions from blackboard
     snprintf(argt2, sizeof argt2, "%d", pipe_T_to_B[1]); // writes positions to blackboard
-    char *args_targets[] = { "konsole", "-e", "./targets", argt1, argt2, NULL };
+    char *args_targets[] = {"./targets", argt1, argt2, NULL };
     spawn(args_targets[0], args_targets);
 
     // Closing all pipes

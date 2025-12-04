@@ -17,7 +17,6 @@ int main(int argc, char* argv[]){
     int fd_key = atoi(argv[4]); // Reads user key from input_manager
 
     char received_key;
-    char stop_char = '-';
     int next_drone_position[2] = {0,0};
     int borders[2] = {0,0};
     int obstacles[N_OBS][2];
@@ -29,7 +28,10 @@ int main(int argc, char* argv[]){
     double T;
     int ro;
 
-    load_parameters("parameters.txt",&M,&K,&T,&ro,&max_applied_force);
+    if(load_parameters("parameters.txt",&M,&K,&T,&ro,&max_applied_force) < 0){
+        printf("Exiting process drone.\n");
+        exit(EXIT_FAILURE);
+    }
 
     double oblique_force_comp = (sqrt(2)/2)*max_applied_force;
 
@@ -64,42 +66,42 @@ int main(int argc, char* argv[]){
                     // Updating drone position using Euler's method
                 case 'f': force_on_x = max_applied_force; force_on_y = 0.0;
                         move_drone(fd_key,fd_npos,&drone_msg,next_drone_position,force_on_x,force_on_y,
-                        max_applied_force,oblique_force_comp,M,K,T,borders,'f',obstacles, ro);
+                        max_applied_force,oblique_force_comp,M,K,T,borders,obstacles, ro);
                     // Drone goes to the left (x changes)
                     break;
                 case 's': force_on_x = -max_applied_force; force_on_y = 0.0;
                         move_drone(fd_key,fd_npos,&drone_msg,next_drone_position,force_on_x,force_on_y,
-                        max_applied_force,oblique_force_comp,M,K,T,borders,'s',obstacles, ro);
+                        max_applied_force,oblique_force_comp,M,K,T,borders,obstacles, ro);
                     // Drone goes to the left (x changes)
                     break;
                 case 'e': force_on_x = 0.0; force_on_y = -max_applied_force;
                         move_drone(fd_key,fd_npos,&drone_msg,next_drone_position,force_on_x,force_on_y,
-                        max_applied_force,oblique_force_comp,M,K,T,borders,'e',obstacles, ro);
+                        max_applied_force,oblique_force_comp,M,K,T,borders,obstacles, ro);
                     // Drone goes up (y changes)
                     break;
                 case 'c': force_on_x = 0.0; force_on_y = max_applied_force;
                         move_drone(fd_key,fd_npos,&drone_msg,next_drone_position,force_on_x,force_on_y,
-                        max_applied_force,oblique_force_comp,M,K,T,borders,'c',obstacles, ro);
+                        max_applied_force,oblique_force_comp,M,K,T,borders,obstacles, ro);
                     // Drone goes down (y changes)
                     break;
                 case 'w': force_on_x = -oblique_force_comp; force_on_y = -oblique_force_comp;
                         move_drone(fd_key,fd_npos,&drone_msg,next_drone_position,force_on_x,force_on_y,
-                        max_applied_force,oblique_force_comp,M,K,T,borders,'w',obstacles, ro);
+                        max_applied_force,oblique_force_comp,M,K,T,borders,obstacles, ro);
                     // Drone goes to left/up
                     break;
                 case 'r': force_on_x = oblique_force_comp; force_on_y = -oblique_force_comp;
                         move_drone(fd_key,fd_npos,&drone_msg,next_drone_position,force_on_x,force_on_y,
-                        max_applied_force,oblique_force_comp,M,K,T,borders,'r',obstacles, ro);
+                        max_applied_force,oblique_force_comp,M,K,T,borders,obstacles, ro);
                     // Drone goes right/up
                     break;
                 case 'x': force_on_x = -oblique_force_comp; force_on_y = oblique_force_comp;
                         move_drone(fd_key,fd_npos,&drone_msg,next_drone_position,force_on_x,force_on_y,
-                        max_applied_force,oblique_force_comp,M,K,T,borders,'x',obstacles, ro);
+                        max_applied_force,oblique_force_comp,M,K,T,borders,obstacles, ro);
                     // Drone goes left/down
                     break;
                 case 'v': force_on_x = oblique_force_comp; force_on_y = oblique_force_comp;
                         move_drone(fd_key,fd_npos,&drone_msg,next_drone_position,force_on_x,force_on_y,
-                        max_applied_force,oblique_force_comp,M,K,T,borders,'v',obstacles, ro);
+                        max_applied_force,oblique_force_comp,M,K,T,borders,obstacles, ro);
                     // Drone goes right/down
                     break;
                 case 'q':

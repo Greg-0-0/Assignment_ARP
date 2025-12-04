@@ -74,7 +74,7 @@ void compute_repulsive_forces(int fd_npos,DroneMsg* drone_msg, double* force_x, 
 
 // Function to implement drone movement and border repulsion
 void move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[2],double force_x, double force_y, double max_force, 
-       double oblique_force_comp, double M, double K, double T, int borders[], char last_valid_key, int obstacles[N_OBS][2], int ro);
+       double oblique_force_comp, double M, double K, double T, int borders[], int obstacles[N_OBS][2], int ro);
 
 // ------ used in obstacles.c & targets.c ------
 

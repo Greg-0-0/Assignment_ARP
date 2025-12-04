@@ -1,5 +1,5 @@
                                                                                                  
-# # 1st ASSIGNMENT for ADVANCED ROBOT PROGRAMMING 
+#  1st ASSIGNMENT for ADVANCED ROBOT PROGRAMMING 
 
 
 
@@ -31,18 +31,18 @@ The border has a repulsive effect as well.
 
 # Instructions to use
 - keys:
-    w -> moves drone towards top-left
-    r -> moves drone towards top-right
-    x -> moves drone towards bottom-left
-    v -> moves drone towards bottom-right
-    c -> moves drone towards down
-    e -> moves drone towards up
-    s -> moves drone towards left
-    f -> moves drone towards right
-    d -> stops the drone
-    q -> quit
+    - w -> moves drone towards top-left
+    - r -> moves drone towards top-right
+    - x -> moves drone towards bottom-left
+    - v -> moves drone towards bottom-right
+    - c -> moves drone towards down
+    - e -> moves drone towards up
+    - s -> moves drone towards left
+    - f -> moves drone towards right
+    - d -> stops the drone
+    - q -> quit
 
-# Possible bugs
+# Possible bug
 - ncurses windows spawns obstacles and targets  -> resize ncurses window to not full-screen,
   only on a certain part of the screen             close program and then run it again
 

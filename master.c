@@ -25,21 +25,25 @@ int main(){
     int pipe_D_to_B_NPos[2];
     int pipe_O_to_B[2];
     int pipe_B_to_O[2];
+    int pipe_B_to_T[2];
+    int pipe_T_to_B[2];
 
-    if(pipe(pipe_I_to_D) < 0 || pipe(pipe_D_to_B_Req) < 0 || pipe(pipe_B_to_D_Pos) < 0 ||
-        pipe(pipe_D_to_B_NPos) < 0 || pipe(pipe_O_to_B) < 0 || pipe(pipe_B_to_O)){
+    if(pipe(pipe_I_to_D) < 0 || pipe(pipe_D_to_B_Req) < 0 || pipe(pipe_B_to_D_Pos) < 0 || pipe(pipe_D_to_B_NPos) < 0 || 
+        pipe(pipe_O_to_B) < 0 || pipe(pipe_B_to_O) || pipe(pipe_B_to_T) < 0 || pipe(pipe_T_to_B) < 0){
         perror("pipe");
         exit(EXIT_FAILURE);
     }
 
     // ---------- spawn blackboard ----------
-    char argb1[32], argb2[32], argb3[32], argb4[32], argb5[32];
+    char argb1[32], argb2[32], argb3[32], argb4[32], argb5[32], argb6[32], argb7[32];
     snprintf(argb1, sizeof argb1, "%d", pipe_D_to_B_Req[0]); // read requests from drone
     snprintf(argb2, sizeof argb2, "%d", pipe_D_to_B_NPos[0]); // read new positions from drone
     snprintf(argb3, sizeof argb3, "%d", pipe_B_to_D_Pos[1]); // replies to drone
     snprintf(argb4, sizeof argb4, "%d", pipe_B_to_O[1]); // writes positions to obstacles
     snprintf(argb5, sizeof argb5, "%d", pipe_O_to_B[0]); // reads positions from obstacles
-    char *args_blackboard[] = { "konsole", "-e", "./blackboard", argb1, argb2, argb3, argb4, argb5, NULL };
+    snprintf(argb6, sizeof argb6, "%d", pipe_B_to_T[1]); // writes positions to targets
+    snprintf(argb7, sizeof argb7, "%d", pipe_T_to_B[0]); // reads positions from targets
+    char *args_blackboard[] = { "konsole", "-e", "./blackboard", argb1, argb2, argb3, argb4, argb5, argb6, argb7, NULL };
     spawn(args_blackboard[0], args_blackboard);
 
     // ---------- spawn drone ----------
@@ -64,6 +68,13 @@ int main(){
     char *args_obstacles[] = { "konsole", "-e", "./obstacles", argo1, argo2, NULL };
     spawn(args_obstacles[0], args_obstacles);
 
+    // ---------- spawn targets ----------
+    char argt1[32], argt2[32];
+    snprintf(argt1, sizeof argt1, "%d", pipe_B_to_T[0]); // reads positions from blackboard
+    snprintf(argt2, sizeof argt2, "%d", pipe_T_to_B[1]); // writes positions to blackboard
+    char *args_targets[] = { "konsole", "-e", "./targets", argt1, argt2, NULL };
+    spawn(args_targets[0], args_targets);
+
     // Closing all pipes
     close(pipe_I_to_D[0]); close(pipe_I_to_D[1]);
     close(pipe_D_to_B_Req[0]); close(pipe_D_to_B_Req[1]);
@@ -71,5 +82,6 @@ int main(){
     close(pipe_D_to_B_NPos[0]); close(pipe_D_to_B_NPos[1]);
     close(pipe_B_to_O[0]); close(pipe_B_to_O[1]);
     close(pipe_O_to_B[0]); close(pipe_O_to_B[1]);
+    close(pipe_B_to_T[0]); close(pipe_T_to_B[1]);
     return 0;
 }

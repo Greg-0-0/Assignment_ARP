@@ -1,45 +1,4 @@
-#include<stdlib.h>
-#include<sys/types.h>
-#include<string.h>
-#include<stdio.h>
-#include<unistd.h>
-#include<sys/stat.h>
-#include<fcntl.h>
-#include<math.h>
-#include<time.h>
-#include<sys/select.h>
-
-#define N_TARGETS 10
-#define N_OBS 10
-
-typedef enum{
-    MSG_QUIT = 0,
-    MSG_POS = 1,
-    MSG_NPOS = 2,
-    MSG_STOP = 3,
-    MSG_NAN = 4
-} MsgType;
-
-typedef struct{
-    MsgType type;
-    int drone_y;
-    int drone_x;
-    int border_y;
-    int border_x;
-    int obstacles[N_OBS][2];
-    int targets[N_TARGETS][2];
-} BlackboardMsg;
-
-// To ensure all the bytes inside the received struct are read
-ssize_t read_full(int fd, void* buf, size_t size) {
-    size_t total = 0;
-    while (total < size) {
-        ssize_t n = read(fd, (char*)buf + total, size - total);
-        if (n <= 0) return n; // error or pipe closed
-        total += n;
-    }
-    return total;
-}
+#include"functions.h"
 
 int main(int argc, char * argv[]){
 

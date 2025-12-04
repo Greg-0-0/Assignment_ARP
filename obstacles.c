@@ -1,45 +1,4 @@
-#include<stdlib.h>
-#include<sys/types.h>
-#include<string.h>
-#include<stdio.h>
-#include<unistd.h>
-#include<sys/stat.h>
-#include<fcntl.h>
-#include<math.h>
-#include<time.h>
-#include<sys/select.h>
-
-#define N_OBS 10
-#define N_TARGETS 10
-
-typedef enum{
-    MSG_QUIT = 0,
-    MSG_POS = 1,
-    MSG_NPOS = 2,
-    MSG_STOP = 3,
-    MSG_NAN = 4
-} MsgType;
-
-typedef struct{
-    MsgType type;
-    int drone_y;
-    int drone_x;
-    int border_y;
-    int border_x;
-    int obstacles[N_OBS][2];
-    int targets[N_TARGETS][2];
-} BlackboardMsg;
-
-// To ensure all the bytes inside the received struct are read
-ssize_t read_full(int fd, void* buf, size_t size) {
-    size_t total = 0;
-    while (total < size) {
-        ssize_t n = read(fd, (char*)buf + total, size - total);
-        if (n <= 0) return n; // error or pipe closed
-        total += n;
-    }
-    return total;
-}
+#include"functions.h"
 
 int main(int argc, char * argv[]){
 
@@ -48,8 +7,8 @@ int main(int argc, char * argv[]){
         exit(EXIT_FAILURE);
     }
 
-    int fd_new_pos = atoi(argv[1]); // Receives positions of drone and blackboard
-    int fd_new_obs = atoi(argv[2]); // Sends position of obstacles
+    int fd_new_pos = atoi(argv[1]); // Receives position of drone and borders from blackboard
+    int fd_new_obs = atoi(argv[2]); // Sends positions of obstacles
     BlackboardMsg positions; positions.border_x = 0; positions.border_y = 0; 
     positions.drone_x = 0; positions.drone_y = 0; positions.type = MSG_NAN;
     
@@ -69,7 +28,6 @@ int main(int argc, char * argv[]){
         if(n > 0){
             if(positions.type == MSG_QUIT)
                 exit(EXIT_SUCCESS);
-            printf("pos border: %d, %d\n", positions.border_x,positions.border_y);
             // Creating obstacles
             for(int i = 0;i<N_OBS;i++){
                 int pos_y = 7 + rand() % (positions.border_y - 7); // Random generator from 7 to H - 8

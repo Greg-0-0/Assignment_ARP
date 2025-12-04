@@ -2,103 +2,7 @@
 // Correct order of execution: konsole -e ./blackboard& -> konsole -e ./drone& -> konsole -e ./input_manager&
 
 #define _XOPEN_SOURCE_EXTENDED
-#include<stdlib.h>
-#include<sys/types.h>
-#include<string.h>
-#include<stdio.h>
-#include<unistd.h>
-#include<sys/stat.h>
-#include<fcntl.h>
-#include<ncurses.h>
-#include <locale.h>
-
-#define N_OBS 10
-#define N_TARGETS 10
-
-typedef enum{
-    MSG_QUIT = 0,
-    MSG_POS = 1,
-    MSG_NPOS = 2,
-    MSG_STOP = 3,
-    MSG_NAN = 4
-} MsgType;
-
-typedef struct{
-    MsgType type;
-    int new_drone_y;
-    int new_drone_x;
-} DroneMsg;
-
-typedef struct{
-        MsgType type;
-        int drone_y;
-        int drone_x;
-        int border_y;
-        int border_x;
-        int obstacles[N_OBS][2];
-        int targets[N_TARGETS][2];
-    } BlackboardMsg;
-
-void draw_rect(WINDOW *win, int y, int x, int h, int w, int color_pair)
-{
-    wattron(win, COLOR_PAIR(color_pair));
-
-    // top and bottom
-    for (int col = x; col < w; col++) {
-        mvwaddch(win, y, col, ACS_HLINE);
-        mvwaddch(win, h, col, ACS_HLINE);
-    }
-
-    // left and right
-    for (int row = y; row < h; row++) {
-        mvwaddch(win, row, x, ACS_VLINE);
-        mvwaddch(win, row, w, ACS_VLINE);
-    }
-
-    // corners
-    mvwaddch(win, y, x, ACS_ULCORNER);
-    mvwaddch(win, y, w, ACS_URCORNER);
-    mvwaddch(win, h, x, ACS_LLCORNER);
-    mvwaddch(win, h, w, ACS_LRCORNER);
-
-    wattroff(win, COLOR_PAIR(color_pair));
-
-    wrefresh(win);
-}
-
-
-static void layout_and_draw(WINDOW *win,int* H, int* W) {
-    //int H, W;
-    getmaxyx(stdscr, *H, *W);
-    start_color();
-
-    init_pair(1, COLOR_RED, COLOR_BLACK);
-
-    // Windows with fixed margins
-    int wh = (*H > 6) ? *H - 6 : *H;
-    int ww = (*W > 10) ? *W - 10 : *W;
-    if (wh < 3) wh = 3;
-    if (ww < 3) ww = 3;
-
-    // Resize and recenter the window
-    wresize(win, wh, ww);
-    mvwin(win, (*H - wh) / 2, (*W - ww) / 2);
-
-    // Klean up and redraw
-    werase(stdscr);
-    werase(win);
-    box(win, 0, 0);
-    getmaxyx(win, *H, *W);
-    // Drawable region goes from y:1 to H-2 and x:1 to W-2
-
-    // Spawn drone
-    mvwprintw(win,*H/2,*W/2,"+");
-
-    refresh();
-    wrefresh(win);
-
-    draw_rect(win,6,6,*H-7,*W-7,1);
-}
+#include"functions.h"
 
 int main(int argc, char* argv[]) {
 
@@ -108,14 +12,12 @@ int main(int argc, char* argv[]) {
     }
 
     int fd_req = atoi(argv[1]); // Receives request of new position from drone, non blocking otherwise it would block resize of window
-    int fd_npos = atoi(argv[2]);
-    int fd_pos = atoi(argv[3]); // Used to send current drone position, obstacle positions and borders position to drone
-    // Receives new position of drone from drone (movement), can be blocking, since we are waiting for a new position, 
+    int fd_npos = atoi(argv[2]); // Receives new position of drone from drone (movement), can be blocking, since we are waiting for a new position, 
     // after pressing a key, and realistically we wouldn't choose to resize window at that moment
-    
-    int fd_npos_to_o = atoi(argv[4]); // Writes new drone position and borders to obstacle after resizing
+    int fd_pos = atoi(argv[3]); // Used to send current drone position, obstacles position and borders position to drone
+    int fd_npos_to_o = atoi(argv[4]); // Writes new drone and borders position to obstacle program after resizing
     int fd_nobs = atoi(argv[5]); // Reads new obstacles position
-    int fd_npos_to_t = atoi(argv[6]); // Writes new drone position, borders and obstacle after resizing
+    int fd_npos_to_t = atoi(argv[6]); // Writes new drone, borders and obstacles position after resizing
     int fd_trs = atoi(argv[7]); // Reads new targets position
 
     int H, W;
@@ -159,8 +61,8 @@ int main(int argc, char* argv[]) {
 
     // Window with temporary dimensions
     WINDOW *win = newwin(3, 3, 0, 0);
-    layout_and_draw(win,&H,&W);
-    //getmaxyx(win, H, W);
+    layout_and_draw(win);
+    getmaxyx(win, H, W);
 
     // Initial drone position
     positions.drone_y = H/2; // y
@@ -200,8 +102,8 @@ int main(int argc, char* argv[]) {
 
             // Resize window
             resize_term(0, 0);
-            layout_and_draw(win,&H,&W);
-            //getmaxyx(win, H, W);
+            layout_and_draw(win);
+            getmaxyx(win, H, W);
 
             // Reset drone position
             positions.drone_y = H/2; // y
@@ -249,12 +151,15 @@ int main(int argc, char* argv[]) {
                     break;
                 }
                 if(drone_msg.type == MSG_QUIT){
+                    // Quitting program
                     positions.type = MSG_QUIT;
-                    write(fd_npos_to_o,&positions,sizeof(positions));
-                    write(fd_npos_to_t,&positions,sizeof(positions));
+                    write(fd_npos_to_o,&positions,sizeof(positions)); // Sendds message to obstacles program
+                    write(fd_npos_to_t,&positions,sizeof(positions)); // Sendds message to targets program
                     exit(EXIT_SUCCESS);
                 }
                 mvwaddch(win,positions.drone_y,positions.drone_x,' ');
+                // Resetting eventual drone position off the the window 
+                // (this can happen even though the drone is then pushed inside the border by force)
                 if(drone_msg.new_drone_y >= H-2)
                     drone_msg.new_drone_y= H-2;
                 else if(drone_msg.new_drone_y < 1)

@@ -1,21 +1,4 @@
-#include<stdlib.h>
-#include<sys/types.h>
-#include<string.h>
-#include<stdio.h>
-#include<unistd.h>
-#include<sys/stat.h>
-#include<fcntl.h>
-
-// Function to run separte processes
-static void spawn(const char *prog, char *const argv[]) {
-    pid_t pid = fork();
-    if (pid < 0) { perror("fork"); exit(EXIT_FAILURE); }
-    if (pid == 0) {
-        execvp(prog, argv);
-        perror("execvp"); 
-        exit(EXIT_FAILURE);
-    }
-}
+#include"functions.h"
 
 int main(){
     // Arrays to store file descriptors

@@ -50,20 +50,20 @@ To comprehend in more depth how the application works I suggest viewing the code
 
 # Functions
 Functions are implemented in file "functions.c" and distributed across the programs using the header library "function.h".
-Functions used in blackboard.c:
-- draw_rect: draws the red rectanlge in the ncurses window to identify the inner borders (crossable with drone, but with repulsion effect)
-- layout_and_draw: creates the ncurses window with the outer borders (not crossable)
-Functions used in drone.c:
-- remove_white_space: removes white spaces from file parameters.txt when reading it line by line
-- load_parameter: parses parameters.txt to load parameters value
-- sleep_ms: allows the process to sleep for a defined amount of milliseconds (used in drone dynamic to achieve smoother motions)
-- drain_pipe: gurantees that pipes are emptied before reusing them, to avoid undesired data reading
-- compute_repulsive_forces: implements the dynamic of repulsion effect of obstacles
-- move_drone: implements the dynamic of drone movement and repulsion effect of borders
-Function used in obstacles.c and targets.c:
-- read_full: ensures that the entire set of bytes passed through a pipe is read (used to avoid undesired behaviour from pipe reading)
-Function used in master.c:
-- spawn: forks new processes and use them to run new executables with execvp
+1. Functions used in blackboard.c:
+  - draw_rect: draws the red rectanlge in the ncurses window to identify the inner borders (crossable with drone, but with repulsion effect)
+  - layout_and_draw: creates the ncurses window with the outer borders (not crossable)
+2. Functions used in drone.c:
+  - remove_white_space: removes white spaces from file parameters.txt when reading it line by line
+  - load_parameter: parses parameters.txt to load parameters value
+  - sleep_ms: allows the process to sleep for a defined amount of milliseconds (used in drone dynamic to achieve smoother motions)
+  - drain_pipe: gurantees that pipes are emptied before reusing them, to avoid undesired data reading
+  - compute_repulsive_forces: implements the dynamic of repulsion effect of obstacles
+  - move_drone: implements the dynamic of drone movement and repulsion effect of borders
+3. Function used in obstacles.c and targets.c:
+  - read_full: ensures that the entire set of bytes passed through a pipe is read (used to avoid undesired behaviour from pipe reading)
+4. Function used in master.c:
+  - spawn: forks new processes and use them to run new executables with execvp
 
 # Author
 Daneri Gregorio

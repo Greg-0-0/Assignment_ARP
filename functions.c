@@ -76,6 +76,42 @@ void change_obstacle_position_flag(){
     update_obstacles = 1;
 }
 
+void check_targets_reached(BlackboardMsg* positions, WINDOW* win, int* reached_targets, int fd_trs, int fd_npos_to_t){
+    for(int i = 0; i < N_TARGETS; i++) {
+        if(positions->drone_y == positions->targets[i][0] && 
+            positions->drone_x == positions->targets[i][1]) {
+                (*reached_targets)++; // Another target reached
+                // Erase target position
+                positions->targets[i][0] = -1;
+                positions->targets[i][1] = -1;
+                positions->reached_targets = *reached_targets;
+                if(*reached_targets == N_TARGETS){
+                    // All targets reached, spawn new targets
+                    
+                    *reached_targets = 0; // Reset reached targets counter
+                    positions->reached_targets = *reached_targets;
+
+                    // Asking targets program for new positions
+                    int temp = positions->type;
+                    positions->type = MSG_POS;
+
+                    write(fd_npos_to_t, positions, sizeof(*positions));
+                    read(fd_trs, positions, sizeof(*positions));
+
+                    positions->type = temp;
+                    
+                    // Printing targets
+                    for(int i = 0;i<N_TARGETS;i++){
+                        wattron(win, COLOR_PAIR(2));
+                        mvwprintw(win,positions->targets[i][0],positions->targets[i][1],"%d",i+1);
+                        wattroff(win, COLOR_PAIR(2));
+                        wrefresh(win);
+                    }
+                }
+        }
+    }
+}
+
 // ------ used in drone.c ------
 
 char* remove_white_space(char* string){
@@ -511,13 +547,6 @@ int check_position(int new_y, int new_x, BlackboardMsg positions){
         return 1; // Invalid position
     }
 
-    // Check if new position collides with other obstacles
-    for(int i = 0;i<N_OBS;i++){
-        if(positions.obstacles[i][0] == new_y && positions.obstacles[i][1] == new_x){
-            return 1; // Invalid position
-        }
-    }
-
     // Check if new position collides with targets
     for(int i = 0;i<N_TARGETS;i++){
         if(positions.targets[i][0] == new_y && positions.targets[i][1] == new_x){
@@ -526,42 +555,6 @@ int check_position(int new_y, int new_x, BlackboardMsg positions){
     }
 
     return 0; // Valid position
-}
-
-// ------ used in targets.c ------
-
-void check_targets_reached(BlackboardMsg* positions, WINDOW* win, int* reached_targets, int fd_trs, int fd_npos_to_t){
-    for(int i = 0; i < N_TARGETS; i++) {
-        if(positions->drone_y == positions->targets[i][0] && 
-            positions->drone_x == positions->targets[i][1]) {
-                (*reached_targets)++; // Another target reached
-                // Erase target position
-                positions->targets[i][0] = -1;
-                positions->targets[i][1] = -1;
-                if(*reached_targets == N_TARGETS){
-                    // All targets reached, spawn new targets
-                    
-                    *reached_targets = 0; // Reset reached targets counter
-
-                    // Asking targets program for new positions
-                    int temp = positions->type;
-                    positions->type = MSG_POS;
-
-                    write(fd_npos_to_t, positions, sizeof(*positions));
-                    read(fd_trs, positions, sizeof(*positions));
-
-                    positions->type = temp;
-                    
-                    // Printing targets
-                    for(int i = 0;i<N_TARGETS;i++){
-                        wattron(win, COLOR_PAIR(2));
-                        mvwprintw(win,positions->targets[i][0],positions->targets[i][1],"%d",i+1);
-                        wattroff(win, COLOR_PAIR(2));
-                        wrefresh(win);
-                    }
-                }
-        }
-    }
 }
 
 // ------ used in obstcles.c & targets.c ------

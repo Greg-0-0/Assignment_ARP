@@ -31,23 +31,16 @@ int main(int argc, char * argv[]){
             else if(positions.type == MSG_NOB){
                 // Changing obstacle position
                 for(int i = 0;i<N_OBS;i++){
-                    if(positions.obstacles[i][0] == -1 && positions.obstacles[i][1] == -1){
-                        // Obstacle to move
-                        int pos_y = 7 + rand() % (positions.border_y - 7); // Random generator from 7 to H - 8
-                        int pos_x = 7 + rand() % (positions.border_x - 7); // Random generator from 7 to W - 8
+                    int pos_y = 7 + rand() % (positions.border_y - 7); // Random generator from 7 to H - 8
+                    int pos_x = 7 + rand() % (positions.border_x - 7); // Random generator from 7 to W - 8
 
-                        // Checking if new position collides with other obstacles, targets or drone
-                        int wrong_position = check_position(pos_y, pos_x, positions);
-                        while(wrong_position){
-                            pos_y = 7 + rand() % (positions.border_y - 7); // Random generator from 7 to H - 8
-                            pos_x = 7 + rand() % (positions.border_x - 7); // Random generator from 7 to W - 8
-
-                            wrong_position = check_position(pos_y, pos_x, positions);
-                        }
-                        positions.obstacles[i][0] = pos_y;
-                        positions.obstacles[i][1] = pos_x;
-                        break;
+                    // Checking if new position collides with targets or drone
+                    if(check_position(pos_y, pos_x, positions)){
+                        i--;
+                        continue;
                     }
+                    positions.obstacles[i][0] = pos_y;
+                    positions.obstacles[i][1] = pos_x;
                 }
             }
             else{

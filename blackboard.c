@@ -6,7 +6,7 @@
 
 int main(int argc, char* argv[]) {
 
-    if(argc < 8){
+    if(argc < 9){
         fprintf(stderr,"No arguments passed to blackboard\n");
         exit(EXIT_FAILURE);
     }
@@ -19,6 +19,7 @@ int main(int argc, char* argv[]) {
     int fd_nobs = atoi(argv[5]); // Reads new obstacles position
     int fd_npos_to_t = atoi(argv[6]); // Writes new drone, borders and obstacles position after resizing
     int fd_trs = atoi(argv[7]); // Reads new targets position
+    int fd_ninfo_to_im = atoi(argv[8]); // Writes new drone position and score to input manager for visual update
 
     int H, W, reached_targets = 0;
 
@@ -49,9 +50,9 @@ int main(int argc, char* argv[]) {
 
     // Timer setup for obstacle position change
     static struct itimerval timer;
-    timer.it_interval.tv_sec = 5;
+    timer.it_interval.tv_sec = 10;
     timer.it_interval.tv_usec = 0;
-    timer.it_value.tv_sec = 5;
+    timer.it_value.tv_sec = 10;
     timer.it_value.tv_usec = 0;
 
 
@@ -166,21 +167,22 @@ int main(int argc, char* argv[]) {
             // Time to change obstacle position
             update_obstacles = 0;
 
-            // Choose an obstacle to move
-            srand(time(NULL));
-            int obs_to_move = rand() % N_OBS;
-            mvwaddch(win,positions.obstacles[obs_to_move][0],positions.obstacles[obs_to_move][1],' '); // Cleaning previous obstacle position
-            // Telling obstacle program which obstacle to move
-            positions.obstacles[obs_to_move][0] = -1;
-            positions.obstacles[obs_to_move][1] = -1;
+            // Erase previous obstacles
+            for(int i = 0;i<N_OBS;i++){
+                mvwaddch(win,positions.obstacles[i][0],positions.obstacles[i][1],' ');
+            }
+            wrefresh(win);
+
             int temp = positions.type;
             positions.type = MSG_NOB;
-            // Retrieving new obstacle position
+            // Retrieving new obstacles position
             write(fd_npos_to_o,&positions,sizeof(positions));
             read(fd_nobs,&positions,sizeof(positions));
-            // Printing new obstacle
+            // Printing new obstacles
             wattron(win, COLOR_PAIR(3));
-            mvwprintw(win,positions.obstacles[obs_to_move][0],positions.obstacles[obs_to_move][1],"o");
+            for(int i = 0;i<N_OBS;i++){
+                mvwprintw(win,positions.obstacles[i][0],positions.obstacles[i][1],"o");
+            }
             wattroff(win, COLOR_PAIR(3));
             wrefresh(win);
             
@@ -222,6 +224,8 @@ int main(int argc, char* argv[]) {
                 draw_rect(win,6,6,H-7,W-7,1);
                 check_targets_reached(&positions, win, &reached_targets, fd_trs, fd_npos_to_t);
                 wrefresh(win);
+                // Sending new position and score to input manager for visual update
+                write(fd_ninfo_to_im, &positions, sizeof(positions));
             }
         }
         else if(drone_msg.type == MSG_QUIT){

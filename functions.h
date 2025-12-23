@@ -45,6 +45,7 @@ typedef struct{
         int drone_x;
         int border_y;
         int border_x;
+        int reached_targets;
         int obstacles[N_OBS][2];
         int targets[N_TARGETS][2];
 } BlackboardMsg;
@@ -62,6 +63,10 @@ void layout_and_draw(WINDOW *win);
 
 // Sets flag to change obstacle position
 void change_obstacle_position_flag();
+
+// Function to check how many targets have been reached and request new ones if all reached
+void check_targets_reached(BlackboardMsg* positions, WINDOW* win, 
+    int* reached_targets, int fd_trs, int fd_npos_to_t);
 
 // ------ used in drone.c ------
 
@@ -90,10 +95,6 @@ void move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[
 
 // Function to check wether new obstacle position is valid
 int check_position(int new_y, int new_x, BlackboardMsg positions);
-
-// ------ used in targets.c ------
-
-void check_targets_reached(BlackboardMsg* positions, WINDOW* win, int* reached_targets, int fd_trs, int fd_npos_to_t);
 
 // ------ used in obstacles.c & targets.c ------
 

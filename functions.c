@@ -1,5 +1,8 @@
 #include"functions.h"
 
+// Define the global variable (declared as extern in .h)
+volatile sig_atomic_t update_obstacles = 0;
+
 // ------ used in blackboard.c ------
 
 void draw_rect(WINDOW *win, int y, int x, int h, int w, int color_pair)
@@ -30,11 +33,16 @@ void draw_rect(WINDOW *win, int y, int x, int h, int w, int color_pair)
 }
 
 void layout_and_draw(WINDOW *win) {
+
+
     int H, W;
     getmaxyx(stdscr, H, W);
     start_color();
 
     init_pair(1, COLOR_RED, COLOR_BLACK);
+    init_pair(2, COLOR_GREEN, COLOR_BLACK);
+    init_pair(3, COLOR_YELLOW, COLOR_BLACK);
+    init_pair(4, COLOR_BLUE, COLOR_BLACK);
 
     // Windows with fixed margins
     int wh = (H > 6) ? H - 6 : H;
@@ -54,12 +62,18 @@ void layout_and_draw(WINDOW *win) {
     // Drawable region goes from y:1 to H-2 and x:1 to W-2
 
     // Spawn drone
+    wattron(win, COLOR_PAIR(4));
     mvwprintw(win,H/2,W/2,"+");
+    wattroff(win, COLOR_PAIR(4));
 
     refresh();
     wrefresh(win);
 
     draw_rect(win,6,6,H-7,W-7,1);
+}
+
+void change_obstacle_position_flag(){
+    update_obstacles = 1;
 }
 
 // ------ used in drone.c ------
@@ -487,6 +501,31 @@ void move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[
     write(fd_npos,drone_msg,sizeof(*drone_msg));
     
     return;
+}
+
+// ------ used in obstacles.c ------
+
+int check_position(int new_y, int new_x, BlackboardMsg positions){
+    // Check if new position collides with drone
+    if(new_y == positions.drone_y && new_x == positions.drone_x){
+        return 1; // Invalid position
+    }
+
+    // Check if new position collides with other obstacles
+    for(int i = 0;i<N_OBS;i++){
+        if(positions.obstacles[i][0] == new_y && positions.obstacles[i][1] == new_x){
+            return 1; // Invalid position
+        }
+    }
+
+    // Check if new position collides with targets
+    for(int i = 0;i<N_TARGETS;i++){
+        if(positions.targets[i][0] == new_y && positions.targets[i][1] == new_x){
+            return 1; // Invalid position
+        }
+    }
+
+    return 0; // Valid position
 }
 
 // ------ used in obstcles.c & targets.c ------

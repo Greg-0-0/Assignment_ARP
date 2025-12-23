@@ -47,6 +47,14 @@ int main(int argc, char* argv[]) {
            positions.drone_x = 0; positions.drone_y = 0; positions.type = MSG_POS;
     DroneMsg drone_msg; drone_msg.type = MSG_NAN;
 
+    // Timer setup for obstacle position change
+    static struct itimerval timer;
+    timer.it_interval.tv_sec = 5;
+    timer.it_interval.tv_usec = 0;
+    timer.it_value.tv_sec = 5;
+    timer.it_value.tv_usec = 0;
+
+
     setlocale(LC_ALL, "");
 
     initscr();
@@ -81,7 +89,9 @@ int main(int argc, char* argv[]) {
 
     // Printing obstacles
     for(int i = 0;i<N_OBS;i++){
+        wattron(win, COLOR_PAIR(3));
         mvwprintw(win,positions.obstacles[i][0],positions.obstacles[i][1],"o");
+        wattroff(win, COLOR_PAIR(3));
         wrefresh(win);
     }
 
@@ -91,9 +101,17 @@ int main(int argc, char* argv[]) {
 
     // Printing targets
     for(int i = 0;i<N_TARGETS;i++){
+        wattron(win, COLOR_PAIR(2));
         mvwprintw(win,positions.targets[i][0],positions.targets[i][1],"T");
+        wattroff(win, COLOR_PAIR(2));
         wrefresh(win);
     }
+
+    // Set up signal handler to change obstacle position periodically
+    signal(SIGALRM, change_obstacle_position_flag);
+
+    // Starting timer for obstacle position change every 5 seconds
+    setitimer(ITIMER_REAL, &timer, NULL);
 
     sleep(5);
     
@@ -123,7 +141,9 @@ int main(int argc, char* argv[]) {
 
             // Printing obstacles
             for(int i = 0;i<N_OBS;i++){
+                wattron(win, COLOR_PAIR(3));
                 mvwprintw(win,positions.obstacles[i][0],positions.obstacles[i][1],"o");
+                wattroff(win, COLOR_PAIR(3));
                 wrefresh(win);
             }
 
@@ -133,18 +153,45 @@ int main(int argc, char* argv[]) {
 
             // Printing targets
             for(int i = 0;i<N_TARGETS;i++){
+                wattron(win, COLOR_PAIR(2));
                 mvwprintw(win,positions.targets[i][0],positions.targets[i][1],"T");
+                wattroff(win, COLOR_PAIR(2));
                 wrefresh(win);
             }
 
             positions.type = temp;
 
         }
+        if(update_obstacles){
+
+            // Time to change obstacle position
+            update_obstacles = 0;
+
+            // Choose an obstacle to move
+            srand(time(NULL));
+            int obs_to_move = rand() % N_OBS;
+            mvwaddch(win,positions.obstacles[obs_to_move][0],positions.obstacles[obs_to_move][1],' '); // Cleaning previous obstacle position
+            // Telling obstacle program which obstacle to move
+            positions.obstacles[obs_to_move][0] = -1;
+            positions.obstacles[obs_to_move][1] = -1;
+            int temp = positions.type;
+            positions.type = MSG_NOB;
+            // Retrieving new obstacle position
+            write(fd_npos_to_o,&positions,sizeof(positions));
+            read(fd_nobs,&positions,sizeof(positions));
+            // Printing new obstacle
+            wattron(win, COLOR_PAIR(3));
+            mvwprintw(win,positions.obstacles[obs_to_move][0],positions.obstacles[obs_to_move][1],"o");
+            wattroff(win, COLOR_PAIR(3));
+            wrefresh(win);
+            
+            positions.type = temp;
+        }
         read(fd_req, &drone_msg, sizeof(drone_msg)); // Checks for position request from drone (non blocking)
         if(drone_msg.type == MSG_POS){
             // Drone is asking for position
             write(fd_pos,&positions,sizeof(positions)); // Sends current position
-            // If drone is asking for position it wants to move, thus reading on fd3
+            // If drone is asking for position it wants to move, thus reading on fd_npos
             while(1){
                 read(fd_npos,&drone_msg,sizeof(drone_msg)); // Receiving new position
                 if(drone_msg.type == MSG_STOP || drone_msg.type == MSG_NAN){
@@ -157,9 +204,9 @@ int main(int argc, char* argv[]) {
                     write(fd_npos_to_t,&positions,sizeof(positions)); // Sendds message to targets program
                     exit(EXIT_SUCCESS);
                 }
-                mvwaddch(win,positions.drone_y,positions.drone_x,' ');
-                // Resetting eventual drone position off the the window 
-                // (this can happen even though the drone is then pushed inside the border by force)
+                mvwaddch(win,positions.drone_y,positions.drone_x,' '); // Cleaning previous drone position
+                // Resetting eventual drone position off the window 
+                // (this can happen even though the drone is then pushed back inside the border by the force of the fence)
                 if(drone_msg.new_drone_y >= H-2)
                     drone_msg.new_drone_y= H-2;
                 else if(drone_msg.new_drone_y < 1)
@@ -170,7 +217,9 @@ int main(int argc, char* argv[]) {
                     drone_msg.new_drone_x = 1;
                 positions.drone_y = drone_msg.new_drone_y;
                 positions.drone_x = drone_msg.new_drone_x;
-                mvwprintw(win,positions.drone_y,positions.drone_x,"+");
+                wattron(win, COLOR_PAIR(4));
+                mvwprintw(win,positions.drone_y,positions.drone_x,"+"); // Drawing drone at new position
+                wattroff(win, COLOR_PAIR(4));
                 draw_rect(win,6,6,H-7,W-7,1);
                 wrefresh(win);
             }

@@ -6,7 +6,16 @@ int main(int argc, char * argv[]){
         fprintf(stderr,"No arguments passed to targets\n");
         exit(EXIT_FAILURE);
     }
- //---
+  
+    sem_t *log_sem = sem_open("/log_sem", 0);
+    if (log_sem == SEM_FAILED) {
+        perror("sem_open");
+        exit(EXIT_FAILURE);
+    }
+
+    //Process started successfully
+    write_log("application.log", "TARGETS", "INFO", "Targets process started successfully", log_sem);
+
     int fd_new_pos = atoi(argv[1]); // Receives positions of drone and blackboard
     int fd_new_trs = atoi(argv[2]); // Sends position of targets
     BlackboardMsg positions; positions.border_x = 0; positions.border_y = 0; 
@@ -26,8 +35,10 @@ int main(int argc, char * argv[]){
         // which, unfortunatley, I am forced to use.
         
         if(n > 0){
-            if(positions.type == MSG_QUIT)
+            if(positions.type == MSG_QUIT){
+                write_log("application.log", "TARGETS", "INFO", "Targets process terminated successfully", log_sem);
                 exit(EXIT_SUCCESS);
+            }
             // Creating targets
             for(int i = 0;i<N_TARGETS;i++){
                 int pos_y = 7 + rand() % (positions.border_y - 7); // Random generator from 7 to H - 8
@@ -43,6 +54,8 @@ int main(int argc, char * argv[]){
             write(fd_new_trs,&positions,sizeof(positions));
         }
         else{
+            log_error("application.log", "TARGETS", "read targets", log_sem);
+            perror("read targets");
             exit(EXIT_FAILURE);
         }
 
@@ -50,6 +63,8 @@ int main(int argc, char * argv[]){
     }
     close(fd_new_pos);
     close(fd_new_trs);
+
+    sem_close(log_sem);
 
     return 0;
 }

@@ -30,8 +30,8 @@ blackboard: blackboard.c $(COMMON)
 drone: drone.c $(COMMON)
 	$(CC) $(CFLAGS) drone.c $(COMMON) -o drone $(LIBS)
 
-input_manager: input_manager.c
-	$(CC) $(CFLAGS) input_manager.c -o input_manager -lncurses
+input_manager: input_manager.c $(COMMON)
+	$(CC) $(CFLAGS) input_manager.c $(COMMON) -o input_manager $(LIBS)
 
 obstacles: obstacles.c $(COMMON)
 	$(CC) $(CFLAGS) obstacles.c $(COMMON) -o obstacles $(LIBS)

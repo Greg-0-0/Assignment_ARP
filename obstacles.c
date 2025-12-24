@@ -7,6 +7,15 @@ int main(int argc, char * argv[]){
         exit(EXIT_FAILURE);
     }
 
+    sem_t *log_sem = sem_open("/log_sem", 0);
+    if (log_sem == SEM_FAILED) {
+        perror("sem_open");
+        exit(EXIT_FAILURE);
+    }
+
+    //Process started successfully
+    write_log("application.log", "OBSTACLES", "INFO", "Obstacles process started successfully", log_sem);
+
     int fd_new_pos = atoi(argv[1]); // Receives position of drone and borders from blackboard
     int fd_new_obs = atoi(argv[2]); // Sends positions of obstacles
     BlackboardMsg positions; positions.border_x = 0; positions.border_y = 0; 
@@ -26,8 +35,10 @@ int main(int argc, char * argv[]){
         // which, unfortunatley, I am forced to use.
         
         if(n > 0){
-            if(positions.type == MSG_QUIT)
+            if(positions.type == MSG_QUIT){
+                write_log("application.log", "OBSTACLES", "INFO", "Obstacles process terminated successfully", log_sem);
                 exit(EXIT_SUCCESS);
+            }
             else if(positions.type == MSG_NOB){
                 // Changing obstacle position
                 for(int i = 0;i<N_OBS;i++){
@@ -61,6 +72,7 @@ int main(int argc, char * argv[]){
             write(fd_new_obs,&positions,sizeof(positions));
         }
         else{
+            log_error("application.log", "OBSTACLES", "read obstacles", log_sem);
             perror("read obstacles");
             exit(EXIT_FAILURE);
         }
@@ -69,6 +81,10 @@ int main(int argc, char * argv[]){
     }
     close(fd_new_pos);
     close(fd_new_obs);
+
+    write_log("application.log", "OBSTACLES", "INFO", "Obstacles process terminated successfully", log_sem);
+    
+    sem_close(log_sem);
 
     return 0;
 }

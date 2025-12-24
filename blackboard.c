@@ -11,6 +11,15 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    sem_t *log_sem = sem_open("/log_sem", 0);
+    if (log_sem == SEM_FAILED) {
+        perror("sem_open");
+        exit(EXIT_FAILURE);
+    }
+
+    // Process started successfully
+    write_log("application.log", "BLACKBOARD", "INFO", "Blackboard process started successfully", log_sem);
+
     int fd_req = atoi(argv[1]); // Receives request of new position from drone, non blocking otherwise it would block resize of window
     int fd_npos = atoi(argv[2]); // Receives new position of drone from drone (movement), can be blocking, since we are waiting for a new position, 
     // after pressing a key, and realistically we wouldn't choose to resize window at that moment
@@ -96,7 +105,7 @@ int main(int argc, char* argv[]) {
         wrefresh(win);
     }
 
-    sleep(7);
+    write_log("application.log", "BLACKBOARD", "INFO", "Obstacles positions initialized", log_sem);
 
     // Retrieving targets position
     write(fd_npos_to_t,&positions,sizeof(positions));
@@ -109,6 +118,8 @@ int main(int argc, char* argv[]) {
         wattroff(win, COLOR_PAIR(2));
         wrefresh(win);
     }
+
+    write_log("application.log", "BLACKBOARD", "INFO", "Targets positions initialized", log_sem);
 
     // Set up signal handler to change obstacle position periodically
     signal(SIGALRM, change_obstacle_position_flag);
@@ -149,6 +160,8 @@ int main(int argc, char* argv[]) {
                 wrefresh(win);
             }
 
+            write_log("application.log", "BLACKBOARD", "INFO", "Obstacles positions updated", log_sem);
+
             // Retrieving targets position
             write(fd_npos_to_t,&positions,sizeof(positions));
             read(fd_trs,&positions,sizeof(positions));
@@ -160,6 +173,8 @@ int main(int argc, char* argv[]) {
                 wattroff(win, COLOR_PAIR(2));
                 wrefresh(win);
             }
+
+            write_log("application.log", "BLACKBOARD", "INFO", "Targets positions updated", log_sem);
 
             positions.type = temp;
 
@@ -187,6 +202,8 @@ int main(int argc, char* argv[]) {
             }
             wattroff(win, COLOR_PAIR(3));
             wrefresh(win);
+
+            write_log("application.log", "BLACKBOARD", "INFO", "10 seconds elapsed, obstacles positions changed", log_sem);
             
             positions.type = temp;
         }
@@ -205,6 +222,9 @@ int main(int argc, char* argv[]) {
                     positions.type = MSG_QUIT;
                     write(fd_npos_to_o,&positions,sizeof(positions)); // Sendds message to obstacles program
                     write(fd_npos_to_t,&positions,sizeof(positions)); // Sendds message to targets program
+
+                    write_log("application.log", "BLACKBOARD", "INFO", "Blackboard process terminated successfully", log_sem);
+
                     exit(EXIT_SUCCESS);
                 }
                 mvwaddch(win,positions.drone_y,positions.drone_x,' '); // Cleaning previous drone position
@@ -224,7 +244,7 @@ int main(int argc, char* argv[]) {
                 mvwprintw(win,positions.drone_y,positions.drone_x,"+"); // Drawing drone at new position
                 wattroff(win, COLOR_PAIR(4));
                 draw_rect(win,6,6,H-7,W-7,1);
-                check_targets_reached(&positions, win, &reached_targets, fd_trs, fd_npos_to_t);
+                check_targets_reached(&positions, win, &reached_targets, fd_trs, fd_npos_to_t, log_sem);
                 wrefresh(win);
                 // Sending new position and score to input manager for visual update
                 write(fd_ninfo_to_im, &positions, sizeof(positions));
@@ -234,6 +254,9 @@ int main(int argc, char* argv[]) {
             positions.type = MSG_QUIT;
             write(fd_npos_to_o,&positions,sizeof(positions));
             write(fd_npos_to_t,&positions,sizeof(positions));
+
+            write_log("application.log", "BLACKBOARD", "INFO", "Blackboard process terminated successfully", log_sem);
+
             exit(EXIT_SUCCESS);
         }
         wrefresh(win);
@@ -247,6 +270,9 @@ int main(int argc, char* argv[]) {
     close(fd_npos_to_t);
     close(fd_trs);
     close(fd_ninfo_to_im);
+
+    sem_close(log_sem);
+    sem_unlink("/log_sem");
 
     delwin(win);
     endwin();

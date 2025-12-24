@@ -68,7 +68,7 @@ void change_obstacle_position_flag();
 
 // Function to check how many targets have been reached and request new ones if all reached
 void check_targets_reached(BlackboardMsg* positions, WINDOW* win, 
-    int* reached_targets, int fd_trs, int fd_npos_to_t);
+    int* reached_targets, int fd_trs, int fd_npos_to_t, sem_t *log_sem);
 
 // ------ used in drone.c ------
 
@@ -87,11 +87,11 @@ void drain_pipe(int fd);
 // Function to compute repulsive forces of obstacles
 void compute_repulsive_forces(int fd_npos,DroneMsg* drone_msg, double* force_x, double* force_y, double max_force,
     double M, double K, double T, int obstacles[N_OBS][2], int ro, double loop_prev_drone_pos[2],double loop_curr_drone_pos[2],
-    double loop_next_drone_pos[2], int previous_drone_pos[2], int next_drone_pos[2], double* temp_x, double* temp_y);
+    double loop_next_drone_pos[2], int previous_drone_pos[2], int next_drone_pos[2], double* temp_x, double* temp_y, sem_t *log_sem);
 
 // Function to implement drone movement and border repulsion
 void move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[2],double force_x, double force_y, double max_force, 
-       double oblique_force_comp, double M, double K, double T, int borders[], int obstacles[N_OBS][2], int ro);
+       double oblique_force_comp, double M, double K, double T, int borders[], int obstacles[N_OBS][2], int ro, sem_t *log_sem);
 
 // ------ used in obstacles.c & targets.c ------
 

@@ -9,18 +9,30 @@ int main(int argc, char* argv[]){
         exit(EXIT_FAILURE);
     }
 
+    sem_t *log_sem = sem_open("/log_sem", 0);
+    if (log_sem == SEM_FAILED) {
+        perror("sem_open");
+        exit(EXIT_FAILURE);
+    }
+
+    // Process started successfully
+    write_log("application.log", "INPUT_MANAGER", "INFO", "Input Manager process started successfully", log_sem);
+
     int fd_key = atoi(argv[1]); // File descriptor to write key inputs to drone 
     int fd_bb = atoi(argv[2]); // File descriptor to read score and drone position from blackboard
 
     // Make read from fd_bb non-blocking, this way inputs can be read continuously
     int flags = fcntl(fd_bb, F_GETFL, 0);
     if(flags < 0){
+        log_error("application.log", "INPUT_MANAGER", "fcntl F_GETFL", log_sem);
         perror("fcnt F_GETFl");
         exit(EXIT_FAILURE);
     }
     flags |= O_NONBLOCK;
     if(fcntl(fd_bb,F_SETFL, flags) < 0){
+        log_error("application.log", "INPUT_MANAGER", "fcntl F_SETFL", log_sem);
         perror("fnctl F_SETFL");
+        exit(EXIT_FAILURE);
     }
 
     int y, x, drone_x = 0, drone_y = 0, score = 0;
@@ -105,13 +117,20 @@ int main(int argc, char* argv[]){
         if(input_key == 'w' || input_key == 'e' || input_key == 'r' || input_key == 's'|| input_key == 'd' || 
             input_key == 'f' || input_key == 'x' || input_key == 'c' || input_key == 'v' || input_key == 'q'){
                 write(fd_key, &input_key,1);
-                if(input_key == 'q')
+                if(input_key == 'q'){
+                    write_log("application.log", "INPUT_MANAGER", "INFO", "Input Manager process terminated successfully", log_sem);
                     exit(EXIT_SUCCESS);
+                }
+                char log_msg[50];
+                snprintf(log_msg, sizeof log_msg, "Key pressed: %c", input_key);
+                write_log("application.log", "INPUT_MANAGER", "INFO", log_msg, log_sem);
         }
     }   
 
     close(fd_key);
     close(fd_bb);
+
+    sem_close(log_sem);
 
     getch();
     endwin();

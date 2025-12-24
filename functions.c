@@ -76,7 +76,7 @@ void change_obstacle_position_flag(){
     update_obstacles = 1;
 }
 
-void check_targets_reached(BlackboardMsg* positions, WINDOW* win, int* reached_targets, int fd_trs, int fd_npos_to_t){
+void check_targets_reached(BlackboardMsg* positions, WINDOW* win, int* reached_targets, int fd_trs, int fd_npos_to_t, sem_t *log_sem){
     for(int i = 0; i < N_TARGETS; i++) {
         if(positions->drone_y == positions->targets[i][0] && 
             positions->drone_x == positions->targets[i][1]) {
@@ -107,6 +107,9 @@ void check_targets_reached(BlackboardMsg* positions, WINDOW* win, int* reached_t
                         wattroff(win, COLOR_PAIR(2));
                         wrefresh(win);
                     }
+
+                    write_log("application.log", "BLACKBOARD", "INFO", "All targets reached, new targets spawned", log_sem);
+
                 }
         }
     }
@@ -130,6 +133,7 @@ char* remove_white_space(char* string){
 int load_parameters(const char* filename, double* drone_mass, double* air_resistance, double* integr_inter, int* rep_radius, double* max_force){
     FILE* file = fopen(filename, "r");
     if(!file){
+        log_error("application.log", "DRONE", "file open", NULL);
         perror("file open");
         exit(EXIT_FAILURE);
     }
@@ -223,7 +227,7 @@ void drain_pipe(int fd) {
 
 void compute_repulsive_forces(int fd_npos,DroneMsg* drone_msg, double* force_x, double* force_y, double max_force,
     double M, double K, double T, int obstacles[N_OBS][2], int ro, double loop_prev_drone_pos[2],double loop_curr_drone_pos[2],
-    double loop_next_drone_pos[2], int previous_drone_pos[2], int next_drone_pos[2], double* temp_x, double* temp_y){
+    double loop_next_drone_pos[2], int previous_drone_pos[2], int next_drone_pos[2], double* temp_x, double* temp_y, sem_t *log_sem){
     
     int distance = -1;
     // Computing ditances among drone and obstacles too see if in range
@@ -231,6 +235,9 @@ void compute_repulsive_forces(int fd_npos,DroneMsg* drone_msg, double* force_x, 
         distance = sqrt(pow(drone_msg->new_drone_y - obstacles[i][0],2)+pow(drone_msg->new_drone_x - obstacles[i][1],2));
         if(distance <= ro){ // ro = 5
             // Drone is inside the obstacle repulsive area
+
+            write_log("application.log", "DRONE", "INFO", "Drone within obstacle repulsive radius, computing repulsive forces", log_sem);
+
             int obs_y_wrt_d = drone_msg->new_drone_y - obstacles[i][0];
             int obs_x_wrt_d = drone_msg->new_drone_x - obstacles[i][1];
             double angle = atan2(obs_y_wrt_d,obs_x_wrt_d);
@@ -283,7 +290,7 @@ void compute_repulsive_forces(int fd_npos,DroneMsg* drone_msg, double* force_x, 
 }
 
 void move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[2],double force_x, double force_y, double max_force, 
-       double oblique_force_comp, double M, double K, double T, int borders[], int obstacles[N_OBS][2], int ro){
+       double oblique_force_comp, double M, double K, double T, int borders[], int obstacles[N_OBS][2], int ro, sem_t *log_sem){
 
     fd_set rfds;
     struct timeval tv;
@@ -307,6 +314,7 @@ void move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[
         FD_SET(fd_key, &rfds);
         retval = select(nfds, &rfds, NULL, NULL, &tv); // Returns only if a key has been pressed
         if(retval == -1){
+            log_error("application.log", "DRONE", "select", log_sem);
             perror("select");
             exit(EXIT_FAILURE);
         }
@@ -386,7 +394,7 @@ void move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[
 
         compute_repulsive_forces(fd_npos,drone_msg,&force_x,&force_y,max_force,M,K,T,obstacles,ro,
             loop_prev_drone_pos,loop_curr_drone_pos,loop_next_drone_pos, previous_drone_pos,next_drone_pos,
-            &temp_x, &temp_y);
+            &temp_x, &temp_y, log_sem);
 
         // Checking if drone is within 5 pixels from the border
         while(drone_msg->new_drone_y <= 6 || drone_msg->new_drone_x <= 6 || 
@@ -394,6 +402,8 @@ void move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[
             is_on_border = 1;
             control = 0;
             delay = 150;
+
+            write_log("application.log", "DRONE", "WARNING", "Drone too close to border, applying repulsive forces", log_sem);
 
             float threshold = 6.0f;   // Distance from border where repulsion begins
             float k = max_force;      // Strength scale
@@ -602,15 +612,19 @@ ssize_t read_full(int fd, void* buf, size_t size) {
 
 void spawn(const char *prog, char *const argv[]) {
     pid_t pid = fork();
-    if (pid < 0) { perror("fork"); exit(EXIT_FAILURE); }
+    if (pid < 0) { 
+        log_error("application.log", "MASTER", "fork", NULL);
+        perror("fork"); exit(EXIT_FAILURE); 
+    }
     if (pid == 0) {
         execvp(prog, argv);
+        log_error("application.log", "MASTER", "execvp", NULL);
         perror("execvp"); 
         exit(EXIT_FAILURE);
     }
 }
 
-// ------ used in  master.c ------
+// ------ used in  master.c & input_manager.c ------
 
 void write_log(const char* log_filename, const char* process_name,
      const char* level, const char* message, sem_t *log_sem){

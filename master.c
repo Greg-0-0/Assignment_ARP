@@ -12,6 +12,10 @@ int main(){
     int pipe_T_to_B[2];
     int pipe_B_to_I[2];
     sem_t *log_sem = sem_open("/log_sem", O_CREAT, 0666, 1);
+    if (log_sem == SEM_FAILED) {
+        perror("sem_open");
+        exit(EXIT_FAILURE);
+    }
 
     if(pipe(pipe_I_to_D) < 0 || pipe(pipe_D_to_B_Req) < 0 || pipe(pipe_B_to_D_Pos) < 0 || pipe(pipe_D_to_B_NPos) < 0 || 
         pipe(pipe_O_to_B) < 0 || pipe(pipe_B_to_O) < 0 || pipe(pipe_B_to_T) < 0 || pipe(pipe_T_to_B) < 0 || pipe(pipe_B_to_I) < 0){
@@ -64,7 +68,7 @@ int main(){
     char *args_targets[] = {"./targets", argt1, argt2, NULL };
     spawn(args_targets[0], args_targets);
 
-    // Appliaction has started successfully
+    // Application has started successfully
     write_log("application.log", "MASTER", "INFO", "Application started successfully", log_sem);
 
     // Closing all pipes
@@ -77,8 +81,10 @@ int main(){
     close(pipe_B_to_T[0]); close(pipe_B_to_T[1]);
     close(pipe_T_to_B[0]); close(pipe_T_to_B[1]);
     close(pipe_B_to_I[0]); close(pipe_B_to_I[1]);
+
+    write_log("application.log", "MASTER", "INFO", "Master process terminated successfully", log_sem);
+
     sem_close(log_sem);
-    sem_unlink("/log_sem");
 
     return 0;
 }

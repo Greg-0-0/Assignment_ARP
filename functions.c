@@ -2,6 +2,13 @@
 
 // Define the global variable (declared as extern in .h)
 volatile sig_atomic_t update_obstacles = 0;
+volatile sig_atomic_t heartbeat_due = 0;
+static timer_t heartbeat_timer_id;
+volatile sig_atomic_t send_signal_from_drone = 0;
+volatile sig_atomic_t send_signal_from_obstacles = 0;
+volatile sig_atomic_t send_signal_from_targets = 0;
+volatile sig_atomic_t send_signal_from_blackboard = 0;
+volatile sig_atomic_t send_signal_from_input_manager = 0;
 
 // ------ used in blackboard.c ------
 
@@ -610,7 +617,7 @@ ssize_t read_full(int fd, void* buf, size_t size) {
 
 // ------ used in master.c ------
 
-void spawn(const char *prog, char *const argv[]) {
+int spawn(const char *prog, char *const argv[]) {
     pid_t pid = fork();
     if (pid < 0) { 
         log_error("application.log", "MASTER", "fork", NULL);
@@ -622,9 +629,10 @@ void spawn(const char *prog, char *const argv[]) {
         perror("execvp"); 
         exit(EXIT_FAILURE);
     }
+    return pid;
 }
 
-// ------ used in  master.c & input_manager.c ------
+// ------ used in  master.c & input_manager.c & blackboard.c & obstacles.c & targets.c ------
 
 void write_log(const char* log_filename, const char* process_name,
      const char* level, const char* message, sem_t *log_sem){
@@ -654,3 +662,76 @@ void log_error(const char* log_filename, const char* process_name,
     snprintf(error_msg, sizeof(error_msg), "%s: %s", context, strerror(errno));
     write_log(log_filename, process_name, "ERROR", error_msg, log_sem);
 }
+
+// ------ heartbeat helpers ------
+
+void heartbeat_signal_handler(int signo) {
+    (void)signo;
+    heartbeat_due = 1;
+}
+
+void setup_heartbeat_itimer(int interval_sec) {
+    // Use sigaction with SA_RESTART to avoid interrupting blocking syscalls
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = heartbeat_signal_handler;
+    sa.sa_flags = SA_RESTART;  // Automatically restart interrupted syscalls
+    sigaction(SIGALRM, &sa, NULL);
+    
+    struct itimerval timer;
+    timer.it_interval.tv_sec = interval_sec;
+    timer.it_interval.tv_usec = 0;
+    timer.it_value.tv_sec = interval_sec;
+    timer.it_value.tv_usec = 0;
+    if (setitimer(ITIMER_REAL, &timer, NULL) == -1) {
+        perror("setitimer");
+        // Do not exit; heartbeat is optional. Log if available.
+    }
+}
+
+int setup_heartbeat_posix_timer(int interval_sec, int signo) {
+    // Use sigaction with SA_RESTART to avoid interrupting blocking syscalls
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = heartbeat_signal_handler;
+    sa.sa_flags = SA_RESTART;  // Automatically restart interrupted syscalls
+    sigaction(signo, &sa, NULL);
+    
+    struct sigevent sev;
+    memset(&sev, 0, sizeof(sev));
+    sev.sigev_notify = SIGEV_SIGNAL;
+    sev.sigev_signo = signo;
+    sev.sigev_value.sival_ptr = &heartbeat_timer_id;
+    if (timer_create(CLOCK_REALTIME, &sev, &heartbeat_timer_id) == -1) {
+        perror("timer_create");
+        return -1;
+    }
+
+    struct itimerspec its;
+    memset(&its, 0, sizeof(its));
+    its.it_interval.tv_sec = interval_sec;
+    its.it_interval.tv_nsec = 0;
+    its.it_value.tv_sec = interval_sec;
+    its.it_value.tv_nsec = 0;
+    if (timer_settime(heartbeat_timer_id, 0, &its, NULL) == -1) {
+        perror("timer_settime");
+        return -1;
+    }
+    return 0;
+}
+
+void send_heartbeat_if_due(int fd_watchdog, const char* process_name, sem_t *log_sem) {
+    if (heartbeat_due) {
+        heartbeat_due = 0;
+        pid_t pid = getpid();
+        ssize_t n = write(fd_watchdog, &pid, sizeof(pid));
+        if (n != (ssize_t)sizeof(pid)) {
+            // Non-fatal: watchdog may be down; log for visibility
+            if (log_sem) {
+                log_error("watchdog.log", process_name, "heartbeat write", log_sem);
+            }
+        }
+    }
+}
+
+

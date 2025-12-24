@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+
 #ifndef FUNCTIONS_H
 #define FUNCTIONS_H
 
@@ -20,7 +22,7 @@
 #include <errno.h>
 
 #define N_OBS 10
-#define N_TARGETS 9
+#define N_TARGETS 9 
 
 // Enum variable to classify every type of message sent via pipe
 typedef enum{
@@ -105,7 +107,7 @@ ssize_t read_full(int fd, void* buf, size_t size);
 // ------ used in master.c ------
 
 // Function to run separte processes
-void spawn(const char *prog, char *const argv[]);
+int spawn(const char *prog, char *const argv[]);
 
 // ------ used in  ------
 
@@ -116,5 +118,22 @@ void write_log(const char* log_filename, const char* process_name,
 // Function to write error messages to a log file
 void log_error(const char* log_filename, const char* process_name,
      const char* context, sem_t *log_sem);
+
+// ------ heartbeat helpers (used by all processes) ------
+
+// Per-process heartbeat flag set by a timer signal
+extern volatile sig_atomic_t heartbeat_due;
+
+// Generic signal handler to set the heartbeat flag
+void heartbeat_signal_handler(int signo);
+
+// Use ITIMER_REAL + SIGALRM for a 1-second heartbeat (processes not using SIGALRM)
+void setup_heartbeat_itimer(int interval_sec);
+
+// Use POSIX timer with a custom signal (e.g., SIGRTMIN) for blackboard
+int setup_heartbeat_posix_timer(int interval_sec, int signo);
+
+// If a heartbeat is due, send it via fd to watchdog (writes pid)
+void send_heartbeat_if_due(int fd_watchdog, const char* process_name, sem_t *log_sem);
 
 #endif

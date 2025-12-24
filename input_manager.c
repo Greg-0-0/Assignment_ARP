@@ -4,12 +4,12 @@
 #include"functions.h"
 
 int main(int argc, char* argv[]){
-    if(argc < 3){
+    if(argc < 4){
         fprintf(stderr,"No arguments passed to input manager\n");
         exit(EXIT_FAILURE);
     }
 
-    sem_t *log_sem = sem_open("/log_sem", 0);
+    sem_t *log_sem = sem_open("/log_sem", 0);// Open existing semaphore for logging
     if (log_sem == SEM_FAILED) {
         perror("sem_open");
         exit(EXIT_FAILURE);
@@ -20,6 +20,7 @@ int main(int argc, char* argv[]){
 
     int fd_key = atoi(argv[1]); // File descriptor to write key inputs to drone 
     int fd_bb = atoi(argv[2]); // File descriptor to read score and drone position from blackboard
+    int fd_hb_watchdog = atoi(argv[3]); // Heartbeat pipe to watchdog
 
     // Make read from fd_bb non-blocking, this way inputs can be read continuously
     int flags = fcntl(fd_bb, F_GETFL, 0);
@@ -66,6 +67,9 @@ int main(int argc, char* argv[]){
     mvprintw(y/2-6, x/2+8, "Y drone pos: %d", drone_y);
     refresh();
 
+    // Heartbeat using SIGALRM + ITIMER (sigaction with SA_RESTART inside)
+    setup_heartbeat_itimer(1);
+
     while(1){
         
         // Read updated drone position and score from blackboard
@@ -82,6 +86,8 @@ int main(int argc, char* argv[]){
             refresh();
         }
         
+        // Heartbeat if due
+        send_heartbeat_if_due(fd_hb_watchdog, "INPUT_MANAGER", log_sem);
         
         input_key = getch();
 

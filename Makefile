@@ -3,14 +3,14 @@
 # ----------------------------
 
 CC      = gcc
-CFLAGS  = -Wall -Wextra
-LIBS    = -lncurses -lm
+CFLAGS  = -Wall -Wextra -D_POSIX_C_SOURCE=200809L
+LIBS    = -lncurses -lm -lrt
 
 # Common source file
 COMMON  = functions.c
 
 # Executables to build
-TARGETS = master blackboard drone input_manager obstacles targets
+TARGETS = master blackboard drone input_manager obstacles targets watchdog
 
 # Default target
 all: $(TARGETS)
@@ -38,6 +38,9 @@ obstacles: obstacles.c $(COMMON)
 
 targets: targets.c $(COMMON)
 	$(CC) $(CFLAGS) targets.c $(COMMON) -o targets $(LIBS)
+
+watchdog: watchdog.c $(COMMON)
+	$(CC) $(CFLAGS) watchdog.c $(COMMON) -o watchdog $(LIBS)
 
 # ----------------------------
 #   UTILITY TARGETS

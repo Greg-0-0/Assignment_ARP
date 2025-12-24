@@ -2,12 +2,12 @@
 
 int main(int argc, char * argv[]){
 
-    if(argc < 3){
+    if(argc < 4){
         fprintf(stderr,"No arguments passed to obstacles\n");
         exit(EXIT_FAILURE);
     }
 
-    sem_t *log_sem = sem_open("/log_sem", 0);
+    sem_t *log_sem = sem_open("/log_sem", 0);// Open existing semaphore for logging
     if (log_sem == SEM_FAILED) {
         perror("sem_open");
         exit(EXIT_FAILURE);
@@ -18,12 +18,21 @@ int main(int argc, char * argv[]){
 
     int fd_new_pos = atoi(argv[1]); // Receives position of drone and borders from blackboard
     int fd_new_obs = atoi(argv[2]); // Sends positions of obstacles
+    int fd_hb_watchdog = atoi(argv[3]); // Heartbeat pipe to watchdog
+
     BlackboardMsg positions; positions.border_x = 0; positions.border_y = 0; 
     positions.drone_x = 0; positions.drone_y = 0; positions.type = MSG_NAN;
     
     srand(time(NULL));
 
+    // Heartbeat using SIGALRM + ITIMER (sigaction with SA_RESTART inside)
+    setup_heartbeat_itimer(1);
+
     while(1){
+
+        // Heartbeat if due
+        send_heartbeat_if_due(fd_hb_watchdog, "OBSTACLES", log_sem);
+
         ssize_t n = read_full(fd_new_pos,&positions,sizeof(positions));
         // The call may read bytes not belonging to the same struct (BlackboardMsg), due to race conditions on pipe creating junk inside the pipe,
         // or sending different struct on the same pipe.

@@ -5,12 +5,12 @@
 
 int main(int argc, char* argv[]){
 
-    if(argc < 5){
+    if(argc < 6){
         fprintf(stderr,"No arguments passed to drone\n");
         exit(EXIT_FAILURE);
     }
 
-    sem_t *log_sem = sem_open("/log_sem", 0);
+    sem_t *log_sem = sem_open("/log_sem", 0);// Open existing semaphore for logging
     if (log_sem == SEM_FAILED) {
         perror("sem_open");
         exit(EXIT_FAILURE);
@@ -19,11 +19,15 @@ int main(int argc, char* argv[]){
     // Process started successfully
     write_log("application.log", "DRONE", "INFO", "Drone process started successfully", log_sem);
 
+    // Heartbeat using SIGALRM + ITIMER (sigaction with SA_RESTART inside)
+    setup_heartbeat_itimer(1);
+
     // Creation of file descriptors
     int fd_req = atoi(argv[1]); // Writes to blackboard a request for obstacles, borders and current drone position
     int fd_npos = atoi(argv[2]); // Writes to blackboard new drone position after movement
     int fd_pos = atoi(argv[3]); // Reads obstcles, borders and drone position
     int fd_key = atoi(argv[4]); // Reads user key from input_manager
+    int fd_hb_watchdog = atoi(argv[5]); // Heartbeat pipe to watchdog
 
     char received_key;
     int next_drone_position[2] = {0,0};
@@ -49,12 +53,16 @@ int main(int argc, char* argv[]){
     DroneMsg drone_msg; drone_msg.type = MSG_NAN;
 
     while(1){
+
+        // Heartbeat if due
+        send_heartbeat_if_due(fd_hb_watchdog, "DRONE", log_sem);
+
         int n = read(fd_key,&received_key,1);
         if(n > 0){
             if(received_key == 'q'){
                 // Quitting programs
                 drone_msg.type = MSG_QUIT;
-                write(fd_req,&drone_msg,sizeof(drone_msg)); // Sent to input_manager
+                write(fd_req,&drone_msg,sizeof(drone_msg)); // Sent to blackboard
                 write_log("application.log", "DRONE", "INFO", "Drone process terminated successfully", log_sem);
                 exit(EXIT_SUCCESS);
             }

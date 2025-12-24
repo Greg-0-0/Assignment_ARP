@@ -6,12 +6,12 @@
 
 int main(int argc, char* argv[]) {
 
-    if(argc < 9){
+    if(argc < 10){
         fprintf(stderr,"No arguments passed to blackboard\n");
         exit(EXIT_FAILURE);
     }
 
-    sem_t *log_sem = sem_open("/log_sem", 0);
+    sem_t *log_sem = sem_open("/log_sem", 0); // Open existing semaphore for logging
     if (log_sem == SEM_FAILED) {
         perror("sem_open");
         exit(EXIT_FAILURE);
@@ -29,6 +29,7 @@ int main(int argc, char* argv[]) {
     int fd_npos_to_t = atoi(argv[6]); // Writes new drone, borders and obstacles position after resizing
     int fd_trs = atoi(argv[7]); // Reads new targets position
     int fd_ninfo_to_im = atoi(argv[8]); // Writes new drone position and score to input manager for visual update
+    int fd_hb_watchdog = atoi(argv[9]); // Heartbeat pipe to watchdog
 
     int H, W, reached_targets = 0;
 
@@ -121,14 +122,20 @@ int main(int argc, char* argv[]) {
 
     write_log("application.log", "BLACKBOARD", "INFO", "Targets positions initialized", log_sem);
 
-    // Set up signal handler to change obstacle position periodically
-    signal(SIGALRM, change_obstacle_position_flag);
+    // Set up signal handler to change obstacle position periodically (use sigaction with SA_RESTART)
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = change_obstacle_position_flag;
+    sa.sa_flags = SA_RESTART;  // Automatically restart interrupted syscalls
+    sigaction(SIGALRM, &sa, NULL);
 
-    // Starting timer for obstacle position change every 5 seconds
+    // Starting timer for obstacle position change every 10 seconds
     setitimer(ITIMER_REAL, &timer, NULL);
-
-    sleep(5);
     
+    // Heartbeat: use POSIX timer with a real-time signal to avoid SIGALRM conflict
+    // (sigaction with SA_RESTART inside setup function)
+    setup_heartbeat_posix_timer(1, SIGRTMIN); // 1-second heartbeat
+
     while (1) {
         if (getch() == KEY_RESIZE) {
 
@@ -179,6 +186,10 @@ int main(int argc, char* argv[]) {
             positions.type = temp;
 
         }
+
+        // Send heartbeat if due
+        send_heartbeat_if_due(fd_hb_watchdog, "BLACKBOARD", log_sem);
+
         if(update_obstacles){
 
             // Time to change obstacle position
@@ -259,6 +270,9 @@ int main(int argc, char* argv[]) {
 
             exit(EXIT_SUCCESS);
         }
+        // Send heartbeat if due (second time in case of long operations)
+        send_heartbeat_if_due(fd_hb_watchdog, "BLACKBOARD", log_sem);
+
         wrefresh(win);
     }
 

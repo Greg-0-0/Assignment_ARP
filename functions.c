@@ -296,7 +296,7 @@ void compute_repulsive_forces(int fd_npos,DroneMsg* drone_msg, double* force_x, 
     }
 }
 
-void move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[2],double force_x, double force_y, double max_force, 
+int move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[2],double force_x, double force_y, double max_force, 
        double oblique_force_comp, double M, double K, double T, int borders[], int obstacles[N_OBS][2], int ro, sem_t *log_sem){
 
     fd_set rfds;
@@ -319,8 +319,18 @@ void move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[
     do{
         FD_ZERO(&rfds);
         FD_SET(fd_key, &rfds);
+        // Reset timeout before each select call (select modifies tv)
+        tv.tv_sec = 0;
+        tv.tv_usec = 100000;
         retval = select(nfds, &rfds, NULL, NULL, &tv); // Returns only if a key has been pressed
         if(retval == -1){
+            // EINTR means the call was interrupted by a signal (e.g., SIGALRM for heartbeat)
+            // This is normal and we should just retry the select 
+            // (since select is one of those functions that doesn't automatically restart even with SA_RESTART set)
+            if(errno == EINTR){
+                continue; // Retry select
+            }
+            // For other errors, log and exit
             log_error("application.log", "DRONE", "select", log_sem);
             perror("select");
             exit(EXIT_FAILURE);
@@ -331,9 +341,11 @@ void move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[
             n = read(fd_key,&received_key,1);
             if(n > 0){
                 if(received_key == 'q'){
+                    // Return to main loop to handle quit properly
                     drone_msg->type = MSG_QUIT;
                     write(fd_npos,drone_msg,sizeof(*drone_msg));
-                    exit(EXIT_SUCCESS);
+                    drain_pipe(fd_key); // Clear any pending keys
+                    return 1; // Signal quit to main loop
                 }
                 delay = 40;
                 control = 0;
@@ -362,7 +374,7 @@ void move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[
                 case 'd':
                     drone_msg->type = MSG_STOP;
                     write(fd_npos,drone_msg,sizeof(*drone_msg));
-                    return;
+                    return 0;
                 default:
                     break;
                 }
@@ -536,7 +548,7 @@ void move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[
             drone_msg->type = MSG_STOP;
             write(fd_npos,drone_msg,sizeof(*drone_msg));
             drain_pipe(fd_key);
-            return;
+            return 0;
         }
         // Delay inserted to simulate a smoother slow down
         if(control == 4) delay = 70;
@@ -553,7 +565,7 @@ void move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[
     drone_msg->type = MSG_STOP;
     write(fd_npos,drone_msg,sizeof(*drone_msg));
     
-    return;
+    return 0;// Normal completion
 }
 
 // ------ used in obstcles.c & targets.c ------

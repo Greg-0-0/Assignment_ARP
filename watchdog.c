@@ -45,6 +45,13 @@ int main(int argc, char* argv[]){
         struct timeval tv; tv.tv_sec = 0; tv.tv_usec = 500000; // 500 ms
         int ret = select(maxfd + 1, &rfds, NULL, NULL, &tv);
         if(ret == -1){
+            // EINTR means the call was interrupted by a signal
+            // This is normal and we should just retry the select
+            // (since select is one of those functions that doesn't automatically restart even with SA_RESTART set)
+            if(errno == EINTR){
+                continue; // Retry select
+            }
+            // For other errors, log and exit
             log_error("watchdog.log", "WATCHDOG", "select", log_sem);
             perror("select");
             exit(EXIT_FAILURE);

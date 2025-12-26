@@ -19,15 +19,15 @@ int main(int argc, char* argv[]){
     // Process started successfully
     write_log("application.log", "DRONE", "INFO", "Drone process started successfully", log_sem);
 
-    // Heartbeat using SIGALRM + ITIMER (sigaction with SA_RESTART inside)
-    setup_heartbeat_itimer(1);
-
     // Creation of file descriptors
     int fd_req = atoi(argv[1]); // Writes to blackboard a request for obstacles, borders and current drone position
     int fd_npos = atoi(argv[2]); // Writes to blackboard new drone position after movement
     int fd_pos = atoi(argv[3]); // Reads obstcles, borders and drone position
     int fd_key = atoi(argv[4]); // Reads user key from input_manager
     int fd_hb_watchdog = atoi(argv[5]); // Heartbeat pipe to watchdog
+
+    // Heartbeat using SIGALRM + ITIMER (sigaction with SA_RESTART inside)
+    setup_heartbeat_itimer(1);
 
     char received_key;
     int next_drone_position[2] = {0,0};
@@ -80,46 +80,47 @@ int main(int argc, char* argv[]){
                 borders[0] = blackboard_msg.border_y;
                 borders[1] = blackboard_msg.border_x;
                 
+                int quit_requested = 0;
                 switch (received_key)
                 {
                     // Updating drone position using Euler's method
                 case 'f': force_on_x = max_applied_force; force_on_y = 0.0;
-                        move_drone(fd_key,fd_npos,&drone_msg,next_drone_position,force_on_x,force_on_y,
+                        quit_requested = move_drone(fd_key,fd_npos,&drone_msg,next_drone_position,force_on_x,force_on_y,
                         max_applied_force,oblique_force_comp,M,K,T,borders,obstacles, ro, log_sem);
-                    // Drone goes to the left (x changes)
+                    // Drone goes to the right (x changes)
                     break;
                 case 's': force_on_x = -max_applied_force; force_on_y = 0.0;
-                        move_drone(fd_key,fd_npos,&drone_msg,next_drone_position,force_on_x,force_on_y,
+                        quit_requested = move_drone(fd_key,fd_npos,&drone_msg,next_drone_position,force_on_x,force_on_y,
                         max_applied_force,oblique_force_comp,M,K,T,borders,obstacles, ro, log_sem);
                     // Drone goes to the left (x changes)
                     break;
                 case 'e': force_on_x = 0.0; force_on_y = -max_applied_force;
-                        move_drone(fd_key,fd_npos,&drone_msg,next_drone_position,force_on_x,force_on_y,
+                        quit_requested = move_drone(fd_key,fd_npos,&drone_msg,next_drone_position,force_on_x,force_on_y,
                         max_applied_force,oblique_force_comp,M,K,T,borders,obstacles, ro, log_sem);
                     // Drone goes up (y changes)
                     break;
                 case 'c': force_on_x = 0.0; force_on_y = max_applied_force;
-                        move_drone(fd_key,fd_npos,&drone_msg,next_drone_position,force_on_x,force_on_y,
+                        quit_requested = move_drone(fd_key,fd_npos,&drone_msg,next_drone_position,force_on_x,force_on_y,
                         max_applied_force,oblique_force_comp,M,K,T,borders,obstacles, ro, log_sem);
                     // Drone goes down (y changes)
                     break;
                 case 'w': force_on_x = -oblique_force_comp; force_on_y = -oblique_force_comp;
-                        move_drone(fd_key,fd_npos,&drone_msg,next_drone_position,force_on_x,force_on_y,
+                        quit_requested = move_drone(fd_key,fd_npos,&drone_msg,next_drone_position,force_on_x,force_on_y,
                         max_applied_force,oblique_force_comp,M,K,T,borders,obstacles, ro, log_sem);
                     // Drone goes to left/up
                     break;
                 case 'r': force_on_x = oblique_force_comp; force_on_y = -oblique_force_comp;
-                        move_drone(fd_key,fd_npos,&drone_msg,next_drone_position,force_on_x,force_on_y,
+                        quit_requested = move_drone(fd_key,fd_npos,&drone_msg,next_drone_position,force_on_x,force_on_y,
                         max_applied_force,oblique_force_comp,M,K,T,borders,obstacles, ro, log_sem);
                     // Drone goes right/up
                     break;
                 case 'x': force_on_x = -oblique_force_comp; force_on_y = oblique_force_comp;
-                        move_drone(fd_key,fd_npos,&drone_msg,next_drone_position,force_on_x,force_on_y,
+                        quit_requested = move_drone(fd_key,fd_npos,&drone_msg,next_drone_position,force_on_x,force_on_y,
                         max_applied_force,oblique_force_comp,M,K,T,borders,obstacles, ro, log_sem);
                     // Drone goes left/down
                     break;
                 case 'v': force_on_x = oblique_force_comp; force_on_y = oblique_force_comp;
-                        move_drone(fd_key,fd_npos,&drone_msg,next_drone_position,force_on_x,force_on_y,
+                        quit_requested = move_drone(fd_key,fd_npos,&drone_msg,next_drone_position,force_on_x,force_on_y,
                         max_applied_force,oblique_force_comp,M,K,T,borders,obstacles, ro, log_sem);
                     // Drone goes right/down
                     break;
@@ -132,6 +133,14 @@ int main(int argc, char* argv[]){
                     drone_msg.type = MSG_NAN;
                     write(fd_npos,&drone_msg,sizeof(drone_msg));
                     break;
+                }
+
+                // Check if user pressed 'q' during movement
+                if(quit_requested){
+                    drone_msg.type = MSG_QUIT;
+                    write(fd_req,&drone_msg,sizeof(drone_msg));
+                    write_log("application.log", "DRONE", "INFO", "Drone process terminated successfully", log_sem);
+                    exit(EXIT_SUCCESS);
                 }
                 drone_msg.new_drone_y = next_drone_position[0];
                 drone_msg.new_drone_x = next_drone_position[1];

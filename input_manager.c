@@ -39,7 +39,8 @@ int main(int argc, char* argv[]){
     int y, x, drone_x = 0, drone_y = 0, score = 0;
     BlackboardMsg positions; positions.type = MSG_NAN;
 
-    char input_key = 'o';
+    // Use int: ncurses special keys (e.g., KEY_RESIZE) are defined as int, this avoids implict casting when comparing
+    int input_key = ERR;
     initscr();
     start_color();
     resize_term(0, 0);
@@ -122,7 +123,9 @@ int main(int argc, char* argv[]){
         }
         if(input_key == 'w' || input_key == 'e' || input_key == 'r' || input_key == 's'|| input_key == 'd' || 
             input_key == 'f' || input_key == 'x' || input_key == 'c' || input_key == 'v' || input_key == 'q'){
-                write(fd_key, &input_key,1);
+                // Send one byte to the drone
+                char key_to_send = (char)input_key;
+                write(fd_key, &key_to_send, 1);
                 if(input_key == 'q'){
                     write_log("application.log", "INPUT_MANAGER", "INFO", "Input Manager process terminated successfully", log_sem);
                     exit(EXIT_SUCCESS);
@@ -131,6 +134,12 @@ int main(int argc, char* argv[]){
                 snprintf(log_msg, sizeof log_msg, "Key pressed: %c", input_key);
                 write_log("application.log", "INPUT_MANAGER", "INFO", log_msg, log_sem);
         }
+        
+        // Heartbeat at end of loop
+        send_heartbeat_if_due(fd_hb_watchdog, "INPUT_MANAGER", log_sem);
+        
+        // Small delay to avoid busy-waiting
+        sleep_ms(10); // 10ms
     }   
 
     close(fd_key);

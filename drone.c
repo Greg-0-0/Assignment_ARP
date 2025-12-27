@@ -29,6 +29,18 @@ int main(int argc, char* argv[]){
     // Heartbeat using SIGALRM + ITIMER (sigaction with SA_RESTART inside)
     setup_heartbeat_itimer(1);
 
+    // Make fd_key non-blocking to allow heartbeat sending while waiting for input
+    int key_flags = fcntl(fd_key, F_GETFL, 0);
+    if(key_flags < 0){
+        perror("fcntl F_GETFL");
+        exit(EXIT_FAILURE);
+    }
+    key_flags |= O_NONBLOCK;
+    if(fcntl(fd_key, F_SETFL, key_flags) < 0){
+        perror("fcntl F_SETFL");
+        exit(EXIT_FAILURE);
+    }
+
     char received_key;
     int next_drone_position[2] = {0,0};
     int borders[2] = {0,0};
@@ -58,6 +70,16 @@ int main(int argc, char* argv[]){
         send_heartbeat_if_due(fd_hb_watchdog, "DRONE", log_sem);
 
         int n = read(fd_key,&received_key,1);
+        
+        // Heartbeat after read
+        send_heartbeat_if_due(fd_hb_watchdog, "DRONE", log_sem);
+        
+        if(n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)){
+            // No data available, sleep briefly to avoid busy-waiting
+            sleep_ms(50); // 50ms
+            continue;
+        }
+        
         if(n > 0){
             if(received_key == 'q'){
                 // Quitting programs

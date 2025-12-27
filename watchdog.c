@@ -24,10 +24,10 @@ int main(int argc, char* argv[]){
     pid_t t_pid = atoi(argv[10]); // targets PID
 
     const char *names[5] = {"BLACKBOARD", "DRONE", "INPUT_MANAGER", "OBSTACLES", "TARGETS"};
-    int fds[5] = {fd_from_b, fd_from_d, fd_from_i, fd_from_o, fd_from_t};
+    int fds[5] = {fd_from_b, fd_from_d, fd_from_i, fd_from_o, fd_from_t}; // Array of fds to monitor
     pid_t pids[5] = {b_pid, d_pid, i_pid, o_pid, t_pid};
     time_t last_seen[5];
-    int alerted[5] = {0,0,0,0,0};
+    int alerted[5] = {0,0,0,0,0}; // To keep track of alerted processes (timed out)
     for(int i = 0; i < 5; ++i) last_seen[i] = time(NULL);
 
     write_log("watchdog.log", "WATCHDOG", "INFO", "Watchdog started", log_sem);
@@ -63,7 +63,7 @@ int main(int argc, char* argv[]){
                     pid_t incoming;
                     ssize_t n = read(fds[i], &incoming, sizeof(incoming));
                     if(n == (ssize_t)sizeof(incoming)){
-                        last_seen[i] = time(NULL);
+                        last_seen[i] = time(NULL); // Update last seen time
                         if(alerted[i]){
                             // Process has sent heartbeat again after being alerted
                             alerted[i] = 0;
@@ -87,7 +87,7 @@ int main(int argc, char* argv[]){
         time_t now = time(NULL);
         for(int i = 0; i < 5; ++i){
             if(!alerted[i] && difftime(now, last_seen[i]) > 3.0){
-                // Process did not send heartbeat for more than 3 seconds
+                // Process did not send heartbeat for more than 3 seconds -> alert
                 char msg[160];
                 snprintf(msg, sizeof msg, "%s (pid %d) timed out", names[i], (int)pids[i]);
                 write_log("watchdog.log", "WATCHDOG", "ERROR", msg, log_sem);

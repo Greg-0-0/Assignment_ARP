@@ -3,8 +3,9 @@
 This project consists of a **multi-process application** that implements an **interactive drone operation simulator**.
 
 At startup, the software spawns:
-- a **character window** using the **ncurses** library, and
-- a **smaller input window** used to control the drone movement.
+- a **character window** using the **ncurses** library,
+- a **smaller input window** used to control the drone movement, and
+- a **small output window** used to display the interactions between the processes and the watchdog.
 
 The main window displays a boxed area inside which the drone can move. Inside the field there are:
 - **10 obstacles** (orange `o`), spawned randomly,
@@ -21,6 +22,8 @@ The second window is used to input commands for the drone movement. Eight direct
 This window also displays:
 - the **current score**, represented by the number of targets reached (which resets after all targets are collected),
 - the **current drone position**, expressed in characters.
+
+The last window displays various messages communicating whether every process has sent its heartbeat to the watchdog in time, it missed the timer deadline of **3 seconds**, or it recovered, after timing out.
 
 ---
 

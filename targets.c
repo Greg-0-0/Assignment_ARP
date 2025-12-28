@@ -9,9 +9,13 @@ int main(int argc, char * argv[]){
   
     sem_t *log_sem = sem_open("/log_sem", 0);// Open existing semaphore for logging
     if (log_sem == SEM_FAILED) {
-        perror("sem_open");
+        perror("TARGETS line-12 sem_open");
         exit(EXIT_FAILURE);
     }
+
+    // Process identification logging
+    pid_t pid = getpid();
+    write_process_pid("processes.log", "TARGETS", pid, log_sem);
 
     //Process started successfully
     write_log("application.log", "TARGETS", "INFO", "Targets process started successfully", log_sem);
@@ -31,12 +35,12 @@ int main(int argc, char * argv[]){
     // Make fd_new_pos non-blocking to allow heartbeat sending while waiting for data
     int pos_flags = fcntl(fd_new_pos, F_GETFL, 0);
     if(pos_flags < 0){
-        perror("fcntl F_GETFL");
+        perror("TARGETS line-38 fcntl F_GETFL");
         exit(EXIT_FAILURE);
     }
     pos_flags |= O_NONBLOCK;
     if(fcntl(fd_new_pos, F_SETFL, pos_flags) < 0){
-        perror("fcntl F_SETFL");
+        perror("TARGETS line-43 fcntl F_SETFL");
         exit(EXIT_FAILURE);
     }
 
@@ -94,7 +98,7 @@ int main(int argc, char * argv[]){
         else if(n < 0){
             // Real error (not EAGAIN which was already handled)
             log_error("application.log", "TARGETS", "read targets", log_sem);
-            perror("read targets");
+            perror("TARGETS line-101read targets");
             exit(EXIT_FAILURE);
         }
 

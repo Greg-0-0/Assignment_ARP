@@ -20,7 +20,7 @@ int main(){
 
     sem_t *log_sem = sem_open("/log_sem", O_CREAT, 0666, 1);// Create semaphore for logging
     if (log_sem == SEM_FAILED) {
-        perror("sem_open");
+        perror("MASTER line-23 sem_open");
         exit(EXIT_FAILURE);
     }
 
@@ -29,9 +29,13 @@ int main(){
         pipe(pipe_B_to_W) < 0 || pipe(pipe_D_to_W) < 0 || pipe(pipe_I_to_W) < 0 || pipe(pipe_O_to_W) < 0 || pipe(pipe_T_to_W) < 0){
 
         log_error("application.log", "MASTER", "pipe", log_sem);
-        perror("pipe");
+        perror("MASTER line-32 pipe");
         exit(EXIT_FAILURE);
     }
+
+    // Process identification logging
+    pid_t pid = getpid();
+    write_process_pid("processes.log", "MASTER", pid, log_sem);
 
     // ---------- spawn blackboard ----------
     char argb1[32], argb2[32], argb3[32], argb4[32], argb5[32], argb6[32], argb7[32], argb8[32], argb9[32];
@@ -95,7 +99,7 @@ int main(){
     snprintf(argw8, sizeof argw8, "%d", input_manager_pid);
     snprintf(argw9, sizeof argw9, "%d", obstacles_pid);
     snprintf(argw10, sizeof argw10, "%d", targets_pid);
-    char *args_watchdog[] = {"./watchdog", argw1, argw2, argw3, argw4, argw5, argw6, argw7, argw8, argw9, argw10, NULL };
+    char *args_watchdog[] = {"konsole", "-e", "./watchdog", argw1, argw2, argw3, argw4, argw5, argw6, argw7, argw8, argw9, argw10, NULL };
     spawn(args_watchdog[0], args_watchdog);
 
     // Application has started successfully

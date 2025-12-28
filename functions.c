@@ -4,11 +4,6 @@
 volatile sig_atomic_t update_obstacles = 0;
 volatile sig_atomic_t heartbeat_due = 0;
 static timer_t heartbeat_timer_id;
-volatile sig_atomic_t send_signal_from_drone = 0;
-volatile sig_atomic_t send_signal_from_obstacles = 0;
-volatile sig_atomic_t send_signal_from_targets = 0;
-volatile sig_atomic_t send_signal_from_blackboard = 0;
-volatile sig_atomic_t send_signal_from_input_manager = 0;
 
 // ------ used in blackboard.c ------
 
@@ -141,7 +136,7 @@ int load_parameters(const char* filename, double* drone_mass, double* air_resist
     FILE* file = fopen(filename, "r");
     if(!file){
         log_error("application.log", "DRONE", "file open", NULL);
-        perror("file open");
+        perror("FUNCTIONS.C line-139 file open");
         exit(EXIT_FAILURE);
     }
 
@@ -169,40 +164,40 @@ int load_parameters(const char* filename, double* drone_mass, double* air_resist
             if(strcmp(k,"DRONE_MASS") == 0){
                 *drone_mass = atoi(v);
                 if(*drone_mass < 0){
-                    printf("Invalid mass value\n");
+                    printf("load_parameters: Invalid mass value\n");
                     return -1;
                 }
             }
             else if(strcmp(k,"AIR_RESISTANCE") == 0){
                 *air_resistance = atoi(v);
                 if(*air_resistance < 0){
-                    printf("Invalid air resistance value\n");
+                    printf("load_parameters: Invalid air resistance value\n");
                     return -1;
                 }
             }
             else if(strcmp(k,"INTEGRATION_INTERVAL") == 0){
                 *integr_inter = atoi(v);
                 if(*integr_inter < 0){
-                    printf("Invalid integration interval\n");
+                    printf("load_parameters: Invalid integration interval\n");
                     return -1;
                 }
             }
             else if(strcmp(k,"REPULSIVE_RADIUS") == 0){
                 *rep_radius = atoi(v);
                 if(*rep_radius < 0){
-                    printf("Invalid repulsive radius\n");
+                    printf("load_parameters: Invalid repulsive radius\n");
                     return -1;
                 }
             }
             else if(strcmp(k,"MAX_APPLIED_FORCE") == 0){
                 *max_force = atoi(v);
                 if(*max_force < 0){
-                    printf("Invalid maximum force value\n");
+                    printf("load_parameters: Invalid maximum force value\n");
                     return -1;
                 }
             }
             else{
-                printf("Error: unknown parameter -> %s\n", k);
+                printf("load_parameters: unknown parameter -> %s\n", k);
                 return -1;
             }
         }
@@ -332,7 +327,7 @@ int move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[2
             }
             // For other errors, log and exit
             log_error("application.log", "DRONE", "select", log_sem);
-            perror("select");
+            perror("FUNCTIONS.C line-330 select");
             exit(EXIT_FAILURE);
         }
         else if(retval > 0 && FD_ISSET(fd_key, &rfds)){
@@ -633,18 +628,40 @@ int spawn(const char *prog, char *const argv[]) {
     pid_t pid = fork();
     if (pid < 0) { 
         log_error("application.log", "MASTER", "fork", NULL);
-        perror("fork"); exit(EXIT_FAILURE); 
+        perror("FUNCTIONS.C line-631 fork"); exit(EXIT_FAILURE); 
     }
     if (pid == 0) {
         execvp(prog, argv);
         log_error("application.log", "MASTER", "execvp", NULL);
-        perror("execvp"); 
+        perror("FUNCTIONS.C line-636 execvp"); 
         exit(EXIT_FAILURE);
     }
     return pid;
 }
 
-// ------ used in  master.c & input_manager.c & blackboard.c & obstacles.c & targets.c ------
+// ------ used in master.c & input_manager.c & blackboard.c & obstacles.c & targets.c ------
+
+void write_process_pid(const char* log_filename, const char* process_name,
+     pid_t pid, sem_t *log_sem){
+    time_t now = time(NULL);
+    struct tm* t = localtime(&now);
+    char time_str[64];
+    strftime(time_str, sizeof(time_str), "[%Y-%m-%d %H:%M:%S]", t);
+    char log_message[512];
+    snprintf(log_message, sizeof(log_message), "%s [%s] [%d]", time_str, process_name, (int)pid);
+
+    // Ensure exclusive access to the log file
+    sem_wait(log_sem);
+    FILE* log_file = fopen(log_filename, "a"); // Append mode -> seek end of file
+    if(!log_file){
+        perror("FUNCTIONS.C line-657 fopen");
+        exit(EXIT_FAILURE);
+    }
+    fprintf(log_file, "%s\n", log_message);
+    fflush(log_file); // Ensure data is written to file
+    fclose(log_file);
+    sem_post(log_sem);
+}
 
 void write_log(const char* log_filename, const char* process_name,
      const char* level, const char* message, sem_t *log_sem){
@@ -659,7 +676,7 @@ void write_log(const char* log_filename, const char* process_name,
     sem_wait(log_sem);
     FILE* log_file = fopen(log_filename, "a"); // Append mode -> seek end of file
     if(!log_file){
-        perror("fopen");
+        perror("FUNCTIONS.C line-679 fopen");
         exit(EXIT_FAILURE);
     }
     fprintf(log_file, "%s\n", log_message);
@@ -696,7 +713,7 @@ void setup_heartbeat_itimer(int interval_sec) {
     timer.it_value.tv_sec = interval_sec;
     timer.it_value.tv_usec = 0;
     if (setitimer(ITIMER_REAL, &timer, NULL) == -1) {
-        perror("setitimer");
+        perror("FUNCTIONS.C line-716 setitimer");
         // Do not exit; heartbeat is optional. Log if available.
     }
 }
@@ -715,7 +732,7 @@ int setup_heartbeat_posix_timer(int interval_sec, int signo) {
     sev.sigev_signo = signo;
     sev.sigev_value.sival_ptr = &heartbeat_timer_id;
     if (timer_create(CLOCK_REALTIME, &sev, &heartbeat_timer_id) == -1) {
-        perror("timer_create");
+        perror("FUNCTIONS.C line-735 timer_create");
         return -1;
     }
 
@@ -726,7 +743,7 @@ int setup_heartbeat_posix_timer(int interval_sec, int signo) {
     its.it_value.tv_sec = interval_sec;
     its.it_value.tv_nsec = 0;
     if (timer_settime(heartbeat_timer_id, 0, &its, NULL) == -1) {
-        perror("timer_settime");
+        perror("FUNCTIONS.C line-746 timer_settime");
         return -1;
     }
     return 0;

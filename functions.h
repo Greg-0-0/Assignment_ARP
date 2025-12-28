@@ -56,6 +56,7 @@ typedef struct{
 
 // Global variable to signal obstacle position update
 extern volatile sig_atomic_t update_obstacles;
+extern volatile sig_atomic_t heartbeat_due;
 
 // ------ used in blackboard.c ------
 
@@ -98,7 +99,7 @@ int move_drone(int fd_key, int fd_npos,DroneMsg* drone_msg, int next_drone_pos[2
 
 // ------ used in obstacles.c & targets.c ------
 
-// Function to check wether new obstacle position is valid
+// Function to check whether the new obstacle/target position is valid
 int check_position(int new_y, int new_x, BlackboardMsg positions, int n_spawned_elem,
      int obstacles_spawned, int targets_spawned);
 
@@ -110,7 +111,10 @@ ssize_t read_full(int fd, void* buf, size_t size);
 // Function to run separte processes
 int spawn(const char *prog, char *const argv[]);
 
-// ------ used in  ------
+// ------ used in master.c & input_manager.c & blackboard.c & obstacles.c & targets.c ------
+
+// Function to identify process pid and write it to process log file
+void write_process_pid(const char* log_filename, const char* process_name, pid_t pid, sem_t *log_sem);
 
 // Function to write log messages to a log file
 void write_log(const char* log_filename, const char* process_name,

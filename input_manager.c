@@ -11,9 +11,13 @@ int main(int argc, char* argv[]){
 
     sem_t *log_sem = sem_open("/log_sem", 0);// Open existing semaphore for logging
     if (log_sem == SEM_FAILED) {
-        perror("sem_open");
+        perror("INPUT_MANAGER sem_open");
         exit(EXIT_FAILURE);
     }
+
+    // Process identification logging
+    pid_t pid = getpid();
+    write_process_pid("processes.log", "INPUT_MANAGER", pid, log_sem);
 
     // Process started successfully
     write_log("application.log", "INPUT_MANAGER", "INFO", "Input Manager process started successfully", log_sem);
@@ -26,13 +30,13 @@ int main(int argc, char* argv[]){
     int flags = fcntl(fd_bb, F_GETFL, 0);
     if(flags < 0){
         log_error("application.log", "INPUT_MANAGER", "fcntl F_GETFL", log_sem);
-        perror("fcnt F_GETFl");
+        perror("INPUT_MANAGER line-33 fcntl F_GETFL");
         exit(EXIT_FAILURE);
     }
     flags |= O_NONBLOCK;
     if(fcntl(fd_bb,F_SETFL, flags) < 0){
         log_error("application.log", "INPUT_MANAGER", "fcntl F_SETFL", log_sem);
-        perror("fnctl F_SETFL");
+        perror("INPUT_MANAGER line-39 fcntl F_SETFL");
         exit(EXIT_FAILURE);
     }
 

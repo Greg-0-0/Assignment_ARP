@@ -13,9 +13,13 @@ int main(int argc, char* argv[]) {
 
     sem_t *log_sem = sem_open("/log_sem", 0); // Open existing semaphore for logging
     if (log_sem == SEM_FAILED) {
-        perror("sem_open");
+        perror("BLACKBOARD sem_open");
         exit(EXIT_FAILURE);
     }
+
+    // Process identification logging
+    pid_t pid = getpid();
+    write_process_pid("processes.log", "BLACKBOARD", pid, log_sem);
 
     // Avoid process termination on writes to closed pipes (e.g., possibly input_manager after exit -> line 280)
     // Allows graceful handling of EPIPE errors instead of abrupt termination
@@ -40,23 +44,23 @@ int main(int argc, char* argv[]) {
     // Make read from fd_req non-blocking; keep fd_npos blocking to avoid stale reads
     int flags = fcntl(fd_req, F_GETFL, 0);
     if(flags < 0){
-        perror("fcnt F_GETFl");
+        perror("BLACKBOARD line-47 fcntl F_GETFL");
         exit(EXIT_FAILURE);
     }
     flags |= O_NONBLOCK;
     if(fcntl(fd_req,F_SETFL, flags) < 0){
-        perror("fnctl F_SETFL");
+        perror("BLACKBOARD line-52 fcntl F_SETFL");
     }
 
     // Gurantee blocking read on fd_npos (ensure correct MSG_TYPE reception in inner while loop)
     int npos_flags = fcntl(fd_npos, F_GETFL, 0);
     if(npos_flags < 0){
-        perror("fcnt F_GETFl");
+        perror("BLACKBOARD line-58 fcntl F_GETFL");
         exit(EXIT_FAILURE);
     }
     npos_flags &= ~O_NONBLOCK;
     if(fcntl(fd_npos,F_SETFL, npos_flags) < 0){
-        perror("fnctl F_SETFL");
+        perror("BLACKBOARD line-63 fcntl F_SETFL");
     }
 
     // Make write to input manager non-blocking to avoid blocking when it exits
@@ -250,6 +254,8 @@ int main(int argc, char* argv[]) {
                     positions.type = MSG_QUIT;
                     write(fd_npos_to_o,&positions,sizeof(positions)); // Sends message to obstacles program
                     write(fd_npos_to_t,&positions,sizeof(positions)); // Sends message to targets program
+                    char quit_msg[64] = "quit";
+                    write(fd_hb_watchdog, &quit_msg, sizeof(quit_msg)); // Quit command to watchdog
 
                     write_log("application.log", "BLACKBOARD", "INFO", "Blackboard process terminated successfully", log_sem);
 
@@ -286,6 +292,9 @@ int main(int argc, char* argv[]) {
             positions.type = MSG_QUIT;
             write(fd_npos_to_o,&positions,sizeof(positions));
             write(fd_npos_to_t,&positions,sizeof(positions));
+
+            char quit_msg[64] = "quit";
+            write(fd_hb_watchdog, &quit_msg, sizeof(quit_msg)); // Quit command to watchdog
 
             write_log("application.log", "BLACKBOARD", "INFO", "Blackboard process terminated successfully", log_sem);
 

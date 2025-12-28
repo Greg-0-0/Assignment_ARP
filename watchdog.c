@@ -8,9 +8,13 @@ int main(int argc, char* argv[]){
 
     sem_t *log_sem = sem_open("/log_sem", 0);
     if (log_sem == SEM_FAILED) {
-        perror("sem_open");
+        perror("WATCHDOG line-11sem_open");
         exit(EXIT_FAILURE);
     }
+
+    // Process identification logging
+    pid_t pid = getpid();
+    write_process_pid("processes.log", "WATCHDOG", pid, log_sem);
 
     int fd_from_b = atoi(argv[1]); // reads signal from blackboard
     int fd_from_d = atoi(argv[2]); // reads signal from drone
@@ -53,23 +57,51 @@ int main(int argc, char* argv[]){
             }
             // For other errors, log and exit
             log_error("watchdog.log", "WATCHDOG", "select", log_sem);
-            perror("select");
+            perror("WATCHDOG line-70 select");
             exit(EXIT_FAILURE);
         }
         if(ret > 0){
             for(int i = 0; i < 5; ++i){
                 // Check which fd is ready
                 if(FD_ISSET(fds[i], &rfds)){
-                    pid_t incoming;
-                    ssize_t n = read(fds[i], &incoming, sizeof(incoming));
-                    if(n == (ssize_t)sizeof(incoming)){
-                        last_seen[i] = time(NULL); // Update last seen time
-                        if(alerted[i]){
-                            // Process has sent heartbeat again after being alerted
-                            alerted[i] = 0;
+                    // Read up to 64 bytes to handle both pid_t heartbeats and "quit" string
+                    char buf[64];
+                    ssize_t n = read(fds[i], buf, sizeof(buf));
+                    if(n > 0){
+                        // Check for quit message (blackboard writes a 64-byte buffer with "quit" prefix)
+                        if(n >= 4 && memcmp(buf, "quit", 4) == 0){
                             char msg[128];
-                            snprintf(msg, sizeof msg, "%s recovered", names[i]);
+                            snprintf(msg, sizeof msg, "Quit command received from %s", names[i]);
                             write_log("watchdog.log", "WATCHDOG", "INFO", msg, log_sem);
+
+                            printf("Watchdog quitting as per command from %s.\n", names[i]);
+                            for(int j = 0; j < 5; ++j) close(fds[j]);
+                            sem_close(log_sem);
+                            exit(EXIT_SUCCESS);
+                        }
+
+                        // Otherwise, treat pid_t heartbeats; multiple heartbeats may arrive batched
+                        if(n >= (ssize_t)sizeof(pid_t)){
+                            int count = n / (int)sizeof(pid_t);
+                            for(int k = 0; k < count; ++k){
+                                pid_t incoming;
+                                memcpy(&incoming, buf + k * sizeof(pid_t), sizeof(incoming));
+                                last_seen[i] = time(NULL); // Update last seen time
+                                if(alerted[i]){
+                                    // Process has recovered from timeout
+                                    alerted[i] = 0;
+                                    char msg[128];
+                                    snprintf(msg, sizeof msg, "%s recovered", names[i]);
+                                    write_log("watchdog.log", "WATCHDOG", "INFO", msg, log_sem);
+                                    printf("%s (pid %d) has recovered and is sending heartbeats.\n", names[i], (int)incoming);
+                                }
+                                else{
+                                    // Normal heartbeat received
+                                    write_log("watchdog.log", "WATCHDOG", "INFO", "Heartbeat received", log_sem);
+                                    printf("Heartbeat received from %s (pid %d).\n", names[i], (int)incoming);
+                                }
+                            }
+                            // Any trailing bytes (n % sizeof(pid_t)) are ignored
                         }
                     }
                     else if(n == 0){
@@ -92,6 +124,9 @@ int main(int argc, char* argv[]){
                 snprintf(msg, sizeof msg, "%s (pid %d) timed out", names[i], (int)pids[i]);
                 write_log("watchdog.log", "WATCHDOG", "ERROR", msg, log_sem);
                 alerted[i] = 1;
+
+                // Writing alert log
+                printf("ALERT: %s (pid %d) has not sent heartbeat for over 3 seconds.\n", names[i], (int)pids[i]);
             }
         }
     }

@@ -12,9 +12,13 @@ int main(int argc, char* argv[]){
 
     sem_t *log_sem = sem_open("/log_sem", 0);// Open existing semaphore for logging
     if (log_sem == SEM_FAILED) {
-        perror("sem_open");
+        perror("DRONE sem_open");
         exit(EXIT_FAILURE);
     }
+
+    // Process identification logging
+    pid_t pid = getpid();
+    write_process_pid("processes.log", "DRONE", pid, log_sem);
 
     // Process started successfully
     write_log("application.log", "DRONE", "INFO", "Drone process started successfully", log_sem);
@@ -32,12 +36,12 @@ int main(int argc, char* argv[]){
     // Make fd_key non-blocking to allow heartbeat sending while waiting for input
     int key_flags = fcntl(fd_key, F_GETFL, 0);
     if(key_flags < 0){
-        perror("fcntl F_GETFL");
+        perror("DRONE fcntl F_GETFL");
         exit(EXIT_FAILURE);
     }
     key_flags |= O_NONBLOCK;
     if(fcntl(fd_key, F_SETFL, key_flags) < 0){
-        perror("fcntl F_SETFL");
+        perror("DRONE fcntl F_SETFL");
         exit(EXIT_FAILURE);
     }
 

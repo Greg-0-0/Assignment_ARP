@@ -97,7 +97,9 @@ int main(int argc, char* argv[]){
                                 }
                                 else{
                                     // Normal heartbeat received
-                                    write_log("watchdog.log", "WATCHDOG", "INFO", "Heartbeat received", log_sem);
+                                    char msg[128];
+                                    snprintf(msg, sizeof msg, "Heartbeat received from %s (pid %d)", names[i], (int)incoming);
+                                    write_log("watchdog.log", "WATCHDOG", "INFO", msg, log_sem);
                                     printf("Heartbeat received from %s (pid %d).\n", names[i], (int)incoming);
                                 }
                             }
